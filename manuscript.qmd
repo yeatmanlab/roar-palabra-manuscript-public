@@ -2755,7 +2755,7 @@ Not applicable.
 
 ## Open Practices Statement/Availability of Data and Materials
 
-Data can be made available on request for purposes of research and/or collaboration; none of the analyses were preregistered.
+Anonymised data and code are available in this OSF Project: https://osf.io/rhu3w/.
 
 \newpage
 # References
