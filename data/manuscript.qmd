@@ -1,0 +1,3877 @@
+---
+title: "A Fair Lexical Decision Task for Monolingual and Multilingual Spanish-speakers"
+shorttitle: "A Fair Spanish LDT for Mono- and Multilinguals"
+date: "`r Sys.Date()`"
+execute:
+  echo: false
+  warning: false
+  message: false
+author:
+  - name: Julian M. Siebert
+    corresponding: true
+    orcid: 0000-0002-0472-4677
+    email: jms312@stanford.edu
+    affiliations:
+      - name: Stanford University
+        department: Graduate School of Education
+        address: 485 Lasuen Mall
+        city: Stanford
+        region: CA
+        postal-code: 94305
+        id: stanford-gse
+  - name: Mia Fuentes-Jimenez
+    corresponding: false
+    orcid: 0009-0006-2682-2549
+    email: miafuen@stanford.edu
+    affiliations:
+      - ref: stanford-gse
+  - name: Wanying Anya Ma
+    corresponding: false
+    orcid: 0000-0001-5761-8707
+    email: wanjingm@stanford.edu
+    affiliations:
+      - ref: stanford-gse
+  - name: Carrie Townley-Flores
+    corresponding: false
+    orcid: 0000-0002-7464-4840
+    email: ctflores@stanford.edu
+    affiliations:
+      - ref: stanford-gse
+  - name: Ana Saavedra
+    corresponding: false
+    orcid: 0000-0001-6442-4919
+    email: anamar@stanford.edu
+    affiliations:
+      - ref: stanford-gse
+  - name: "The ROAR Developer Consortium"
+    affiliations:
+      - ref: stanford-gse
+  - name: Jason D. Yeatman
+    corresponding: false
+    orcid: 0000-0002-2686-1293
+    email: jyeatman@stanford.edu
+    affiliations:
+      - ref: stanford-gse
+      - name: Stanford University School of Medicine
+        department: Division of Developmental-Behavioral Pediatrics
+        address: 485 Lasuen Mall
+        city: Stanford
+        region: CA
+        postal-code: 94305
+
+abstract: "This study describes the development and validation of ROAR Palabra, a novel Spanish lexical decision task designed for use with both Spanish-speaking children and Spanish-English bilinguals. This self-administered task requires students to decide whether a string of letters presented on the screen is a real word in Spanish. While there is evidence that scores on English lexical decision tasks are highly predictive of performance on conventional (time- and resource-intensive) word reading assessments in English (Yeatman et al., 2021), we explore whether this holds in Spanish, which has a much more transparent orthography. The specific goals are (i) to create a linguistically fair task and an item-response theory model for it and (ii) to evaluate whether such task can serve as a reliable proxy for conventional word reading measures, offering a quick and easy-to-administer tool for assessing reading skills across linguistic and cultural contexts. Results demonstrated strong correlations between performance on ROAR Palabra and standardized word reading assessments such as the Woodcock-Muñoz Batería IV, suggesting its effectiveness as a substitute measure. Notably, the task was sensitive to differences in language proficiency across both monolingual and multilingual groups, reflecting expected developmental and environmental influences. While not designed for the comparisons between monolingual and multilingual populations, the findings underscore the potential of this task as a versatile and culturally adaptable tool for reading assessments in different Spanish-speaking and bilingual contexts."
+
+keywords: [multilingualism, Spanish, lexical decision task, reading assessment]
+author-note:
+  disclosures:
+    conflict of interest: The authors have no conflicts of interest to declare.
+    gratitude: We would like to thank the school districts, including Redwood City School District, families, and students that made this research possible through a research practice partnership model. We would also like to thank Sendy Caffarra for help developing and reviewing items. This work was funded by NICHD R01HD095861, the Stanford-Sequoia K-12 Research Collaborative, the Advanced Educational Research and Development Fund, Stanford Impact Labs, and Neuroscience:Translate grants to JDY.
+floatsintext: true
+format:
+  # html:
+  #   toc: true
+  #   toc-location: left
+  #   number-sections: true
+  #   number-depth: 4
+  apaquarto-pdf:
+    include-after-header: |
+      \makeatletter
+      \AtBeginDocument{
+        \@ifpackageloaded{hyperref}{
+          \hypersetup{
+            colorlinks=true,
+            linkcolor=black,
+            urlcolor=black,
+            citecolor=black
+          }
+        }{}
+      }
+      \makeatother
+    fig-pos: h
+    tbl-pos: t
+    draftall: false
+numbered-lines: true
+# citeproc: true
+suppress-title-page: false
+bibliography: palabra.bib
+csl: apa.csl
+---
+
+```{r setup}
+# Set global chunk options
+knitr::opts_chunk$set(
+  echo = FALSE,       # Hide the code
+  warning = FALSE,    # Suppress warnings
+  message = FALSE,    # Suppress messages
+  cache = TRUE,
+  fig.width = 8,      # Default figure width
+  fig.height = 6,     # Default figure height
+  fig.align = 'center' # Center-align figures
+)
+
+library(kableExtra)
+library(eRm)
+library(mirt)
+library(gtsummary)
+library(ggpubr)
+library(ggExtra)
+library(RColorBrewer)
+library(janitor)
+library(viridis)
+library(tidyverse)
+
+set.seed(11)
+
+# define consistent colour coding 
+col.roar <- "darkgreen"
+col.real <- "firebrick3"
+col.pseudo <- "dodgerblue3"
+col.pbis <- "orange"
+col.diff <- ""
+col.col <- "#FFCD00"
+col.usl <- "firebrick3"
+```
+
+```{r plot-themes}
+theme_set(theme_classic())
+theme_update(
+  panel.background = element_rect(fill = 'transparent'),
+  plot.background = element_rect(fill = 'transparent', color = NA),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  legend.background = element_rect(fill = 'transparent', color = NA)
+)
+```
+
+```{r load-data}
+df <- read_csv("data/roar-palabra-manuscript.csv")
+```
+
+```{r item-lists}
+items.core <- df |> 
+  filter(corpusId == "spanish-core") |> 
+  pull(word) |> 
+  unique()
+items.rand <- df |> 
+  filter(corpusId == "spanish-random") |> 
+  pull(word) |> 
+  unique()
+```
+
+```{r counts}
+N <- length(unique(df$user.assessmentPid))
+n.co <- df |> filter(location == "Colombia") |>  pull(user.assessmentPid) |> unique() |> length()
+n.us <- df |> filter(location == "United States") |>  pull(user.assessmentPid) |> unique() |> length()
+```
+
+```{r pre-processing-item-properties}
+# create wide df
+df.wide <- df |> 
+  select(c(user.assessmentPid, location, word, correct, contains("WM_"))) |> 
+  # filter out duplicate (second+) runs
+  group_by(user.assessmentPid, word) |> 
+  slice(1) |>
+  ungroup() |> 
+  pivot_wider(names_from = word, values_from = correct)
+
+df.wide.prop.correct <- df.wide %>%
+  # add overall proportion correct 
+  mutate(prop.correct = rowSums(select(., -c(user.assessmentPid, location, contains("WM"))), na.rm = TRUE) / rowSums(!is.na(.)),
+         items.seen = rowSums(!is.na(.))
+         ) |> 
+  left_join(df.wide %>%
+              mutate(prop.correct.core = rowSums(select(., -c(user.assessmentPid, location, contains("WM"))), na.rm = TRUE) / rowSums(!is.na(.))
+              ) |> 
+              select(c(user.assessmentPid, prop.correct.core))
+            )
+prop.correct.corr.core.all <- cor(df.wide.prop.correct$prop.correct, df.wide.prop.correct$prop.correct.core)
+
+df.properties <- data.frame(item = character(),
+                            location = character(),
+                            pbis = double(),
+                            pbis.core = double(),
+                            r.wm.lwid = double(),
+                            r.wm.wa = double(),
+                            r.wm.brs = double(),
+                            d = double(),
+                            n = double()
+                            )
+
+df.wide <- df.wide |> 
+  rbind(df.wide |> 
+          mutate(location = "all")
+        )
+
+# add prop.correct to main df
+df <- df |> 
+  left_join(df.wide.prop.correct |>
+              select(c(user.assessmentPid, prop.correct, prop.correct.core, items.seen)),
+            by = "user.assessmentPid"
+            )
+rm(df.wide.prop.correct)
+
+# compute item properties by location
+
+results <- list() # initialize result list
+
+# Group by location for parallel processing
+df.wide %>%
+  group_by(location) %>%
+  group_split() %>%
+  lapply(function(df.temp) {
+    if (nrow(df.temp) == 0) return(NULL)
+    
+    # Exclude non-item columns and prepare items list
+    items <- colnames(df.temp)[8:ncol(df.temp)]
+    
+    # Pre-compute invariant values
+    wm_values <- df.temp %>%
+      select(WM_LWID_Raw, WM_WA_Raw, WM_BRS_SS) %>%
+      mutate(across(everything(), as.numeric))
+    
+    # Loop over items
+    item_results <- lapply(items, function(item) {
+      if (!item %in% colnames(df.temp)) return(NULL)
+      
+      # Exclude specific columns
+      without_item <- df.temp %>%
+        select(-c(user.assessmentPid, location, all_of(item), contains("WM")))
+      
+      without_item_core <- df.temp %>%
+        select(-c(user.assessmentPid, location, all_of(item), contains("WM"), all_of(items.rand)))
+      
+      # Compute proportion correct without the item
+      prop.correct.without.item <- rowSums(without_item, na.rm = TRUE) / rowSums(!is.na(without_item))
+      prop.correct.without.item.core <- rowSums(without_item_core, na.rm = TRUE) / rowSums(!is.na(without_item_core))
+      
+      # Compute correlations
+      pbis <- cor(df.temp[[item]], prop.correct.without.item, use = "pairwise.complete.obs")
+      pbis_core <- cor(df.temp[[item]], prop.correct.without.item.core, use = "pairwise.complete.obs")
+      pbis_wm_lwid <- cor(df.temp[[item]], wm_values$WM_LWID_Raw, use = "pairwise.complete.obs")
+      pbis_wm_wa <- cor(df.temp[[item]], wm_values$WM_WA_Raw, use = "pairwise.complete.obs")
+      pbis_wm_brs <- cor(df.temp[[item]], wm_values$WM_BRS_SS, use = "pairwise.complete.obs")
+      
+      # Compute item difficulty and number of responses
+      p <- sum(df.temp[[item]], na.rm = TRUE) / sum(!is.na(df.temp[[item]]))
+      n <- sum(!is.na(df.temp[[item]]))
+      
+      # Return results as a data frame
+      tibble(
+        item = item,
+        location = unique(df.temp$location),
+        pbis = pbis,
+        pbis_core = pbis_core,
+        pbis_wm_lwid = pbis_wm_lwid,
+        pbis_wm_wa = pbis_wm_wa,
+        pbis_wm_brs = pbis_wm_brs,
+        difficulty = p,
+        n = n
+      )
+    })
+    
+    # Combine item results
+    bind_rows(item_results)
+  }) -> results
+
+# Combine all results into a single data frame
+df.properties <- bind_rows(results)
+
+# change column names
+colnames(df.properties) <- c("item", "location", "pbis", "pbis.core", "pbis.lwid", "pbis.wa", "pbis.brs",  "p", "n")
+
+df.properties <- df.properties |>
+  left_join(df |>
+              select(item = word,
+                     realpseudo,
+                     corpus = corpusId) |>
+              unique()
+            ) |>
+  mutate(pbis = as.double(pbis),
+         pbis.core = as.double(pbis.core),
+         pbis.lwid = as.double(pbis.lwid),
+         pbis.wa = as.double(pbis.wa),
+         pbis.brs = as.double(pbis.brs),
+         p = as.double(p),
+         n = as.double(n),
+         ) |>
+  select(c(item, realpseudo, corpus, location, n, p, contains("pbis")))
+
+pbis.corr.core.all <- cor(df.properties$pbis, df.properties$pbis.core, use = "pairwise.complete.obs")
+```
+
+<!-- # Introduction -->
+
+Reading proficiency is a cornerstone of academic achievement and cognitive development, influencing individuals' ability to engage with and comprehend written information across various contexts.
+Therefore, learning to read is one of the main goals in early elementary school education [@Catts.2021].
+Efficient and equitable assessment of reading skills is essential for the early identification of struggling students so that instruction can be tailored to each student's unique needs.
+However, traditional reading assessments are often time-consuming, resource-intensive, and may lack cultural and linguistic adaptability, particularly when applied to diverse populations such as multilingual individuals [@SolanoFlores.2016]---a population that is understudied and often misconceptualized [@Cummins.2000; @Bialystok.2017; @Grosjean.2008].
+In response to these challenges, there is a growing need for innovative assessment tools that are both reliable and scalable, capable of functioning effectively across different linguistic settings.
+
+In English, lexical decision tasks (LDTs), which have a long tradition in cognitive science research [@Balota2007-ss], have been found to be efficient and reliable predictors of reading performance, correlating strongly with traditional assessments of, for example, word reading [@Yeatman.2021].
+In this study, we extend this approach to Spanish:
+We describe the development of ROAR Palabra, a novel self-administered Spanish LDT and investigate its relationship to traditional proctored assessment of Spanish word reading.
+Importantly, the task is designed around the linguistic diversity of both monolingual Spanish speakers in Latin America and Spanish-English bilinguals in the United States (US).
+
+# Reading in Transparent Versus Opaque Orthographies
+
+Orthographic transparency refers to the level of consistency in the graphemes-phoneme correspondence in a language's writing system.
+A language's orthographic transparency influences the cognitive processes involved in word recognition and reading fluency and, therefore, is a crucial consideration when developing any reading assessment.
+Spanish is characterized by a highly transparent (shallow) orthography, where most letters or combinations of letters reliably represents specific sounds.
+In contrast, opaque orthographies like English exhibit numerous irregular spellings and inconsistent phoneme-grapheme mappings, which makes the process of reading---and learning to read--- more complicated and thus extends the length and amount of instruction required to achieve mastery [@Seymour.2003;@Ziegler.2005].
+
+The transparency of the Spanish language facilitates the ease of acquisition of foundational reading skills.
+Research indicates that Spanish-speaking children typically develop phonological skills more rapidly than same-aged peers learning to read in less transparent languages [@Ziegler.2009].
+This accelerated acquisition of letter-sound correspondence and phonological awareness, in turn, allows for an earlier focal shift toward decoding skills and reading fluency [@Aguasvivas.2020].
+
+Decoding skills allow readers to translate written text into spoken language based on acquired letter-sound correspondence. Over time, decoding becomes automatized allowing for rapid and accurate word recognition. 
+Automated word-level decoding skills facilitate the reading of individual words and are precursors to sentence-level reading efficiency and comprehension [@Ehri.2005; @Perfetti.1985].
+The relatively straightforward syllable structure of Roman languages, characterized by predominantly open syllables (CV-CV) and limited consonant clusters, facilitates more efficient grapheme-to-phoneme mapping and thus enhances the ease of decoding for readers [@Seymour.2003].
+Therefore, in transparent orthographies where decoding is relatively straightforward, word recognition (alongside reading fluency) becomes one of the primary early indicators of reading proficiency.
+
+# Lexical Decision Tasks
+
+LDTs require participants to determine whether a string of letters constitutes a real word or a pseudoword, a process that necessitates both decoding skills and lexical retrieval. 
+LDTs are particularly effective in assessing word decoding and are widely used in psycholinguistic research to study word recognition and lexical access [@Balota.2006;@Katz.2012;@Keuleers.2011].
+The literature largely agrees on the assumption that the underlying visual word recognition processes of a two-alternative forced-choice (2AFC) design in LDTs mirror the cognitive processes at play during other word recognition tasks, such as single-word reading out loud [@Balota.2006;@Seidenberg.1989].
+
+By measuring the accuracy and/or speed of responses on LDTs, such tasks can provide valuable insights into a student's reading development.
+The simplicity and efficiency of the task (easy and short administration) offers a quick and cost-effective means of gauging reading proficiency that can serve as a proxy for more comprehensive, individually-administered assessments.
+LDTs' utility in predicting performance on traditional reading measures has been well-documented, particularly in languages with complex orthographies like English.
+@Yeatman.2021 show that students' scores on an English LDT are highly correlated (*r* = .94) with their scores on the Woodcock-Johnson Letter-word Identification subtask.
+
+LDTs also offer a number of practical advantages over conventional word reading tasks, such as the Woodcock-Muñoz Letter-word Identification subtest [@Woodcock.2019].
+For one, their easy 2AFC design allows for objective, automatic, and immediate scoring without the need for verbalization.
+Because each item takes less than a second, the task can be completed within a few minutes and is amenable to computer adaptive testing [@Ma.2023].
+Last, the silent nature of a LDT allows for completion in a large group setting (e.g., classroom), which translates to less loss of instructional time and lower demands on resources.
+
+The application of LDTs in languages with transparent orthographies presents unique opportunities and challenges.
+In Spanish, the ease of grapheme-phoneme correspondence may enhance the utility of LDTs in assessing word recognition and reading fluency, due to the relatively low decoding demand [@Seymour.2003].
+However, the higher transparency also means that LDTs must be carefully designed to differentiate between varying levels of lexical access and processing speed among different proficiency levels [@Vega-Mendoza.2015].
+Generally, research is sparse on the use of LDTs in Spanish [@Aguasvivas.2020], particularly for assessment of multilingual learners.
+
+# Multilingualism
+
+More than half of the global population is believed to be multilingual [@Grosjean.2010].
+In the US, about 10% of K-12 students speak a language other than English as their first language; in California this holds true for about 20% of the population [@CDoE.2023; @NCIL.2023].
+The development of most psychological and educational assessments, however, continues to largely operate from within a monolingual English mindset.
+Decisions based on inappropriate assessment choice or interpretation of results can have drastic consequences and may result in multilinguals' educational needs going unmet [@Umansky.2016m0c].
+In this paper, we aim to shift this paradigm toward a more careful consideration of multilingual individuals in assessment development to ensure fairly comparable outcomes [@Faulkner-Bond.2020; @SolanoFlores.2023].
+
+## Reading Development in Multlingual Individuals
+
+Multilingual individuals are a heterogeneous population with different levels of language proficiency and reading skills across their languages.
+They exhibit unique developmental trajectories that reflect differences in the amount and sequence of language acquistion, exposure, formal and informal learning environments, as well as sociocultural context [@Surrain.2019;@SolanoFlores.2016].
+@Durán.2024, for example, report that multilingual Spanish-English bilinguals with different levels of English proficiency show different levels of growth on various foundational reading skills in kindergarten and first grade, when assessed in English.
+Especially students with high levels of proficiency in their different languages (balanced multilinguals) are able to tap into all of their languages' linguistic resources, which benefits their metalinguistic skills (e.g., phonological awareness) cross-linguistic knowledge transfer [@Barac.2014].
+
+The effect of concurrent or sequential exposure to multiple languages and linguistic environments can allow for cross-linguistic transfer, where skills developed in one language influence the acquisition and proficiency of another [@Cummins.2000].
+In the context of reading, individuals may also transfer phonological awareness and decoding strategies from their dominant language to their second language, enhancing their reading development in both.
+The nature and extent of this transfer can vary depending on factors such as language similarity, proficiency levels, and the context of language use.
+For Spanish-English bilinguals, the transparent orthography of Spanish may facilitate the transfer of decoding skills to English, while the less transparent English orthography may, in turn, influence reading strategies employed in Spanish [@Bialystok.2017].
+
+## Assessing Multilingual Individuals
+
+Understanding the dynamics of reading development is essential for developing assessments that accurately reflect the reading abilities of multilingual individuals.
+The variability in developmental trajectories of multilingual readers mean there is a need for assessment tools that are sensitive to these learning differences and can provide equitable measures of reading proficiency across both monolingual and multilingual populations.
+Unfortunately, most readily available reading assessments were designed with monolingual English populations in mind---as well as in the calibration and norming samples.
+These assessments do not adequately account for the heterogeneity and complexities of the multilingual experience, therefore often underestimating multilingual individuals’ true linguistic abilities [@Luk.2013; @Bialystok.2001; @SolanoFlores.2009; @SolanoFlores.2017].
+
+Linguistically fair assessment means for a measure to produce equally valid and accurate results for test-takers with different linguistic backgrounds (e.g., first languages, different levels of proficiency of the same language, etc.), but equal levels of the latent trait of interest.
+In other words, a linguistically fair measures for use with mono- and multilingual individuals must not be biased in favor or against those test-takers that are multilingual.
+This becomes a difficult endeavor when the trait to be assessed is a language-related construct, such as in the case of an LDT.
+
+For LDTs, when used with multilingual populations, this means that they must account for cross-linguistic influences, cultural influences, and varying degrees of language dominance to ensure accurate assessment.
+Thus far, Spanish LDTs were successfully used with Spanish-English bilinguals in a sample of tertiary students with high and low English proficiency [@Fairclough.2011].
+Moreover, @Aguasvivas.2020, using LDTs as a measure of Spanish vocabulary, also found no statistically significant changes between monolingual and bilingual tertiary students.
+We are not aware of any study that examined this in younger populations of multilinguals.
+
+# Resarch Questions and Aims
+
+1. The first goal is to develop a reliable Spanish lexical decision task. Specifically, we aim to build the ROAR Palabra, a self-administered Spanish lexical decision task use with both monolingual children in Colombia and multilingual children in the United States.
+1. Second, we investigate the efficacy of such a task for use as a proxy for Spanish single word reading skills, as measured by conventional, resource-intensive, proctored assessments.
+
+# Methods
+
+## Participants
+
+Our sample (*N* = `r N`) comprises children from two locations:
+We recruited a mostly monolingual Spanish-speaking sample from Bogotá, Colombia, (*n* = `r n.co`), as well as a sample of Spanish-English multilingual children from across the United States (US), mostly from California (*n* = `r n.us`).
+The Colombian sample comprises students in grades 1 to 11 at two public schools and one concession schools located in Bogotá, Colombia.
+Concession schools (colegios en concesión) were first launched in Bogotá in 2000; the government contracts private operators to run these schools.
+Concession school students, on overage, receive higher scores on national standardized tests (pruebas Saber) relative to students in other public schools.
+Our sample comes from a schools located in two different low-income neighborhood of Bogotá.
+Additional demographic information was limited.
+
+:::{ .content-visible when-format="html"}
+
+[@tbl-sample-demographics-us] provides an overview of the US sub-sample's demographics.
+The majority of this sub-sample comes from a Northern Californian school district with a large proportion of students classified as English learners and an intentional focus on multilingual learning, manifesting in, for example, the provision of dual-language immersion programs.
+At other US sites, selection of students happened at the school's discretion, though they mostly also selected students classified as English learners or used teacher judgement.
+
+```{r sample-demographics-us}
+#| label: tbl-sample-demographics-us
+#| tbl-cap: "United States Sub-sample's Demographic Characteristics."
+#| tbl-pos: t
+
+df |> 
+  filter(location %in% c("United States"),
+         grade != "K"
+         ) |>
+  mutate(grade = case_when(grade == "1" ~ "Gr 1",
+                           grade == "2" ~ "Gr 2",
+                           !is.na(grade) ~ "Gr 3+"),
+         grade = factor(grade, levels = c("Gr 1", "Gr 2", "Gr 3+"))
+         ) |> 
+  droplevels() |> 
+  select(c(user.assessmentPid, location_state, grade, gender, el_status, frpm)) |>
+  unique() |> 
+  select(-user.assessmentPid) |> 
+  mutate(frpm = case_when(frpm == 0 ~ "Not eligible",
+                          frpm == 1 ~ "Eligible"
+                          ),
+         gender = case_when(gender == "F" ~ "Female",
+                            gender == "M" ~ "Male"
+                            ),
+         el_status = case_when(el_status == "EO" ~ "English-only",
+                               el_status %in% c("IFEP", "RFEP") ~ "English-proficient",
+                               el_status == "EL" ~ "English Learner",
+                               el_status == "TBD" ~ NA_character_
+                               ),
+         ) |> 
+  tbl_summary(by = grade,
+              label = c(gender ~ "Gender",
+                        el_status ~ "English proficiency designation",
+                        frpm ~ "Free or reduced-price lunch eligibility",
+                        location_state = "Location (within US)"
+                        )
+              )
+```
+
+:::
+
+:::{.content-visible unless-format="html"}
+
+[@tbl-sample-demographics-us-pdf] provides an overview of the US sub-sample's demographics.
+The majority of this sub-sample comes from a Northern Californian school district with a large proportion of students classified as English learners and an intentional focus on multilingual learning, manifesting in, for example, the provision of dual-language immersion programs.
+At other US sites, selection of students happened at the school's discretion, though they mostly also selected students classified as English learners or used teacher judgement.
+
+```{r sample-demographics-us-pdf}
+#| label: tbl-sample-demographics-us-pdf
+#| tbl-cap: "United States Sub-sample's Demographic Characteristics.\\newline"
+
+df |> 
+  filter(location %in% c("United States"),
+         grade != "K"
+         ) |>
+  mutate(grade = case_when(grade == "1" ~ "Gr 1",
+                           grade == "2" ~ "Gr 2",
+                           !is.na(grade) ~ "Gr 3+"),
+         grade = factor(grade, levels = c("Gr 1", "Gr 2", "Gr 3+")),
+         location_state = if_else(location_state == "California", "California", "Other")
+         ) |> 
+  droplevels() |> 
+  select(c(user.assessmentPid, location_state, grade, gender, el_status, frpm)) |>
+  unique() |> 
+  select(-user.assessmentPid) |> 
+  mutate(frpm = case_when(frpm == 0 ~ "Not eligible",
+                          frpm == 1 ~ "Eligible"
+                          ),
+         gender = case_when(gender == "F" ~ "Female",
+                            gender == "M" ~ "Male"
+                            ),
+         el_status = case_when(el_status == "EO" ~ "English-only",
+                               el_status %in% c("IFEP", "RFEP") ~ "English-proficient",
+                               el_status == "EL" ~ "English Learner",
+                               el_status == "TBD" ~ NA_character_
+                               ),
+         ) |> 
+  tbl_summary(by = grade,
+              label = c(gender ~ "Gender",
+                        el_status ~ "English proficiency designation",
+                        frpm ~ "Free or reduced-price lunch eligibility",
+                        location_state = "Location (within US)"
+                        )
+              ) |> 
+  as_gt() |>
+  gt::as_latex()
+```
+
+:::
+
+## Measures
+
+### ROAR Palabra
+
+ROAR Palabra is a silent Spanish lexical decision task, which requires test-takers to decide whether an item flashing on the screen for 350 ms is a real Spanish word versus a made up word (pseudoword) and to respond via pressing a button on the keyboard/touchscreen.
+There is no limit on the response time but the item is only presented for 350ms.
+It is an online assessment instrument, developed to accurately measure students' word reading ability in a time- and cost-efficient manner, doing away with the necessity for one-on-one assessments by trained assessment experts.
+It is modeled on ROAR-Word [@Yeatman.2021], which has shown to have high internal consistency reliability (*r* = .95) and scores on which highly correlate with Woodcock-Johnson letter-word identification scores (*r* = .94).
+
+ROAR Palabra is explicitly *not* a translation of ROAR-Word—as a simple translation does not create equivalent versions of the same test [@SolanoFlores.2009].
+In contrast to many other non-English measures, we started the development process from a Spanish perspective:
+We created an initial list of stimuli by prompting ChatGPT to produce a list of Spanish words that are (i) frequent, (ii) known to pre- and middle-schoolers, (iii) known to Spanish-speakers across the Americas, (iv) and occurring in *all* the varieties of Spanish spoken there.
+
+We then then used the Wuggy algorithm [@Keuleers.2010] to create matching, word-like pseudowords--stimuli conforming to Spanish orthographic rules and matching the real word list in terms of word length, letter-transition frequencies, and orthographic neighbourhood size.
+Five speakers of various versions and dialects of Spanish (from Colombia, Ecuador, Mexico, Spain, and United States) then independently reviewed both the real and pseudowords.
+Items flagged as problematic due to, for example, low frequency of occurrence or inappropriate slang meanings in any one of the versions of Spanish were removed.
+With the Spanish-English bilingual context in the US in mind, we also removed generated pseudowords that were real words in English.
+
+This process resulted in an initial item bank with 378 items (that is 189 real words and 189 matched pseudowords).
+To keep administration time reasonable, we selected 70 core items that were hypothesized to span a broad difficulty range (35 real and 35 pseudowords).
+We refer to the remaining 308 items as the extended corpus.
+Every test-taker responded to all core items, as well as random sample of additional (extended-corpus) items selected from the larger item pool.
+
+### Woodcock-Muñoz Batería IV
+
+To assess the degree to which performance on the silent, self-administered ROAR Palabra can function as a proxy for conventional, individually administered word- and nonword reading, we used two subtests of the WM [@Woodcock.2019]---a Spanish parallel of the Woodcock-Johnson IV [@Schrank.2014]:
+  
+- The *identificación de letras y palabras* (letter-word identification; WM-LWID) test, measuring children's oral reading ability by having them read out aloud increasingly difficult words.
+- The *análisis de palabras* (word attack; WM-WA) test, requiring children to read  increasingly complex nonsense word out aloud, thereby tapping into their phonics and decoding skills. 
+
+Both tasks are scored for pronunciation accuracy by trained test-administrators following the guidelines of the scoring manual.
+The age-standardized scores of both the WM-LWID and WM-WA can be aggregated to provide a basic reading skills (WM-BRS) composite score.
+
+## Procedures
+
+In both settings, we worked closely with school partners in conducting this study.
+School partners provided information about the study to parents or guardians, who then had the opportunity to opt out if they preferred for their children to not participate in the study.
+Students saw assent forms on the screen before beginning  ROAR-Palabra and the researchers ascertained verbal assent before completing WM testing.
+All protocols were approved by the Institutional Review Board at Stanford University.
+
+In Colombia, we trained a group of twenty field assistants and a field coordinator for the administration of both ROAR Palabra and as well as both WM subtests.
+All students at participating schools took ROAR Palabra in the computer rooms of the school, unless their parents had opted out.
+Then, we randomly selected approximately 25% of those who had completed ROAR Palabra (balanced across grade levels) to also complete the WM-LWID and WM-WA.
+For this, students were taken to a dedicated space in the school library or a multi-purpose room and completed the task on a laptop with a proctor--either in-person or on a laptop with headphones, connected to a proctor via a video-conferencing software.
+Scores obtained this way were double-scored by experienced WM administrators.
+
+In the US, exact study procedures varied by school district.
+In most instances, schools made laptops or tablets available to students and tested whole classrooms at a time.
+Research coordinators provided training and (on-site) support before and during the administration periods.
+
+## Analysis
+
+In addressing the first aim of the study--building the first version of ROAR Palabra--we undertook several steps to obtain a final item-response theory (IRT) model.
+Prior to doing model building, we (i) filtered responses based on children's median response times (< 450 ms) and correctness rate (< 65%) to exclude random guessers, (ii) excluded items with low  (< .10) point-biserial correlations to ROAR Palabra (core corpus only) totals and WM-LWID totals, and (iii) excluded items with suboptimal item in- and out-fit (< .60 or > 1.40) within the core corpus.
+We applied these criteria separately to both the US and Colombian sub-sample, so that characteristics of both populations are represented in the final item selection.
+
+
+Using the responses retained after excluding rapid guessers and with those core items surviving the point-biserial correlation exclusion criteria, we iteratively fit a 1PL model and excluded all items with poor fit until we obtained a stable model.
+We fit a 1PL model of the form
+$$ P(X_i = 1 |\theta) = 0.5 + 0.5 \frac{\exp(\theta - b_i)}{1 + \exp(\theta - b_i)},$${#eq-1PL}
+where $P(X_i = 1|\theta)$ is the probability of a correct response given item $i$'s difficulty level, $b_i$, which measured on the same scale as the respondent's ability, $\theta$.
+Given the 2AFC task design, we imposed a .50 lower bound on the probability of a correct response (guessing parameter).
+We used the `mirt` package [@Chalmers.2012] for `R` [@R.2018] for all IRT analyses and calculated theta scores using the default EAP estimator.
+
+We then fit a two-parameter (2PL) model, in order to be able to evaluate item discrimination parameters.
+While this model is not used for final theta estimation, items' discrimination parameters indicate how effectively an item differentiates between respondents with varying levels of the latent trait being measured.
+This provides important information about the item's quality and usefulness in the final measure.
+
+Next, we fit another (final) 1PL model using @eq-1PL.
+This time, we included all those items in the *entire* (core and extended) item bank that survived the exclusion criteria outlined above.
+We fixed the scale using the item parameters obtained in the 1PL model for the core-corpus items and only estimated item parameters for the extended-corpus items.
+Again, we fit a 2PL model for the purpose of obtaining item discrimination parameters.
+
+Following this, we evaluated the reliability of the final (1PL) model.
+Given that ROAR Palabra is a fixed-length task scored using a 1PL model, the appropriate reliability metric is empirical reliability ($\rho_{xx^\prime}$), estimated using @eq-empirical_rxx.
+$$
+\hat{\rho}_{xx^\prime} = \frac{\widehat{VAR}(\hat{\theta})}{\widehat{VAR}(\hat{\theta}) + \widehat{SE}(\hat{\theta})^2},
+$$ {#eq-empirical_rxx}
+Then, we assessed the final model's parameter invariance---that is, we checked whether item difficulty and discrimination parameters are significantly different in the two sub-samples.
+To do so, we compared item parameters from a jointly calibrated 1PL model to parameters obtained from 1PL models fit separately for each sub-sample, as well as parameters from the two separately calibrated models.
+Because the two sub-samples cover very different grade ranges, we conducted the parameter invariance analysis on a separate set of models using only data from respondents in the overlapping grade range. 
+
+In a next step, we assessed ROAR Palabra's criterion validity.
+For this we used the ROAR Palabra theta scores obtained using the final 1PL model (and expected a-posteriori [EAP] estimation) the Colombian students' raw scores on the WM-LWID, WM-WA,and WM-BRS.
+We correlated students' observed WM scores with predicted WM scores obtained from a generalized additive model with a smooth function on ROAR Palabra theta scores.
+Finally, given the sub-samples different grade ranges, we repeated all analysis steps using only the overlapping grades as a sensitivity analysis in the appendix.
+
+# Results
+
+## Item Responses
+
+```{r core-item-obs-counts}
+n.obs.core.co <- mean(df.properties |> filter(corpus == "spanish-core", location == "Colombia") |>  pull(n))
+n.obs.core.us <- mean(df.properties |> filter(corpus == "spanish-core", location == "United States") |>  pull(n))
+```
+
+For the 70 core items, we have `r n.obs.core.co` observations per item for the Colombia sub-sample and `r n.obs.core.us` per item for the US sub-sample.
+For the extended corpus items, while we observe sufficiently large numbers for the purpose of item calibration for the Colombia sub-sample, the response counts from the US are too small to reliably calibrate an IRT model to the US sub-sample.
+Therefore, we refrain from comparing performance on the extended corpus and restrict our detailed analyses and item parameter estimation to the core corpus.
+Afterwards, we refit the model with the extended-corpus items while holding the core items' parameters fixed, so that the extended-corpus corpus items are calibrated to the same measurement scale that was defined based on the detailed analysis of the core item bank.
+
+:::{ .content-visible when-format="html"}
+
+## Median Response Time
+
+::: {.panel-tabset}
+
+### Comparison
+
+```{r fig-median-rt-comparison, fig.height = 3}
+#| label: fig-median-rt-comparison
+#| fig-cap: "Density Plot of Median Response Times (Within Student) by Location."
+
+df.rt <- df |>
+  # median response time across all items (core + random administered)
+  group_by(user.assessmentPid, runId, location, grade) |>
+  mutate(rt.median = median(rt)) |>
+  ungroup() |>
+  select(c(user.assessmentPid, rt.median)) |>
+  unique() |> 
+  left_join(df |>
+              filter(corpusId == "spanish-core") |>
+              select(c(user.assessmentPid, runId, rt)) |>
+              group_by(user.assessmentPid, runId) |>
+              mutate(rt.core.median = median(rt)) |>
+              ungroup() |>
+              select(c(user.assessmentPid, rt.core.median)) |>
+              unique()
+  ) |> 
+  select(c(user.assessmentPid, rt.median, rt.core.median)) |> 
+  unique() |> 
+  left_join(df |>
+              select(c(user.assessmentPid,
+                       prop.correct,
+                       grade,
+                       location
+              )
+              ) |> 
+              unique()
+  )
+
+plot.rt <- df.rt |> 
+  select(c(user.assessmentPid, rt.median, location)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median, group = location, fill = location)) +
+  geom_density(colour = "white", binwidth = 10, alpha = .5) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Median Response Time [ms]",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  scale_colour_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.9, .9))
+plot.rt
+```
+
+### Combination
+
+```{r fig-median-rt-combination, fig.height = 3}
+#| label: fig-median-rt-combination
+#| fig-cap: "Density Plot of Median Response Times (Within Student) Combined Across Locations."
+plot.rt <- df.rt |> 
+  select(c(user.assessmentPid, rt.median)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median)) +
+  geom_histogram(fill = col.roar, binwidth = 10) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Median Response time [ms]",
+       y = "No. of Individuals")
+plot.rt
+```
+
+### Colombia
+
+```{r fig-median-rt-colombia, fig.height = 3}
+#| label: fig-median-rt-colombia
+#| fig-cap: "Density Plot of Median Response Times (Within Student) for Colombian Sub-sample."
+plot.rt <- df.rt |> 
+  filter(location == "Colombia") %>%
+  select(c(user.assessmentPid, rt.median)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median)) +
+  geom_histogram(fill = col.col, binwidth = 10) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Response time [ms]",
+       y = "No. of Individuals")
+plot.rt
+```
+
+### United States
+
+```{r fig-median-rt-us, fig.height = 3}
+#| label: fig-median-rt-us
+#| fig-cap: "Density Plot of Median Response Times (Within Student) for United States Sub-sample."
+plot.rt <- df.rt |> 
+  filter(location == "United States") %>%
+  select(c(user.assessmentPid, rt.median)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median)) +
+  geom_histogram(fill = col.usl, binwidth = 10) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Median Response Time [ms]",
+       y = "No. of Individuals")
+plot.rt
+```
+
+:::
+
+## Sample Performance
+
+::: {.panel-tabset}
+
+### Comparison
+
+```{r fig-performance-comparison, fig.height = 3}
+#| label: fig-performance-comparison
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) by Location."
+plot1 <- df |> 
+  select(c(user.assessmentPid, location, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+### Combination
+
+```{r fig-performance-combination, fig.height = 3}
+#| label: fig-performance-combination
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) Combined Across Locations."
+plot1 <- df |> 
+  select(c(user.assessmentPid, location, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core)) +
+  geom_histogram(colour = "white", fill = col.roar, bins = 50) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "No. of Individuals"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+### Colombia
+
+```{r fig-performance-colombia, fig.height = 3}
+#| label: fig-performance-colombia
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) in the Colombian Sub-sample."
+plot1 <- df |> 
+  filter(location == "Colombia") |>
+  select(c(user.assessmentPid, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "No. of Individuals"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     )
+plot1
+```
+
+### United States
+
+```{r fig-performance-us, fig.height = 3}
+#| label: fig-performance-us
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) in the US sub-sample."
+plot1 <- df |> 
+  filter(location == "United States") |>
+  select(c(user.assessmentPid, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core)) +
+  geom_histogram(fill = col.usl, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "No. of Individuals"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     )
+plot1
+```
+
+:::
+
+:::
+
+## Sample Performance and Median Response Times
+
+[@fig-median-rt-scores] shows median response times as a function of  raw scores (calculated as the percentage of correct responses), disagreggated by grade.
+Barely any of the students performing above chance exhibit median response times < 450 ms. 
+At the same time, students with extremely fast response times (<450ms) perform around the chance level, which is likely indicative of rapid guessing.
+The bimodality of the raw score distribution can be explained by the large grade range, which includes both children still learning how to read words, as well as high schoolers who largely mastered that skill.
+Indeed, [@fig-median-rt-scores-k2] shows the same analysis for only those grades (1 and 2) that are represented in both samples; the overall patterns are very similar and no difference based on study location is observed.
+
+```{r fig-median-rt-scores, fig.height = 5, cache=FALSE}
+#| label: fig-median-rt-scores
+#| fig-cap: "Median Response Time as a Function of Raw (Proportion Correct) Score on ROAR Palabra."
+#| fig-pos: h
+
+plot.rt <- df.rt |> 
+  ggplot(aes(x = prop.correct, y = rt.median, colour = grade, shape = location, group = location)) +
+  geom_point(alpha = .8, aes(shape = location, colour = grade, group = location)) +
+  geom_vline(xintercept = .65, colour = "darkgray") +
+  geom_hline(yintercept = 450, colour = "darkgray") +
+  scale_shape_manual(values = c("United States" = 21, "Colombia" = 24)) +
+  scale_x_continuous(breaks = c(0, .25, .50, .65, .75, 1), 
+                     labels = c("0", ".25", ".50", expression(bold(".65")), ".75", "1.00")) +
+  scale_y_continuous(breaks = c(450, 1000, 2000, 3000, 4000, 5000), 
+                     labels = c(expression(bold("450")), "1000", "2000", "3000", "4000", "5000")) +
+  scale_color_viridis(option = "viridis") +
+  labs(x = "ROAR Palabra Proportion Correct",
+       y = "Median Respone Time [ms]",
+       colour = "Grade",
+       shape = "Location"
+       ) +
+  guides(
+    color = guide_legend(
+      nrow = 2,
+      title.position = "left",
+      label.position = "right",
+      direction = "horizontal"
+    ),
+    shape = guide_legend(
+      nrow = 2,
+      title.position = "left",
+      label.position = "right",
+      direction = "horizontal"
+      )
+    ) +
+  scale_colour_viridis_c(
+    breaks = seq(0, 12, by = 1),
+    labels = c("K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
+  ) +
+  theme(legend.position = "bottom")
+
+plot.rt <- ggMarginal(plot.rt,
+                      type = "histogram",
+                      fill = "#2D708eFF",
+                      colour = "white", # "#404788FF",
+                      alpha = 1
+)
+plot.rt
+
+# cor(df.rt$rt.median, df.rt$rt.core.median) # = .99
+```
+
+
+## Item Properties
+
+```{r corr-item-difficulty}
+df.temp <- df.properties |> 
+  select(c(item, location, p, corpus)) |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  pivot_wider(names_from = location, values_from = p)
+
+r.difficulty.core <- round(cor(df.temp$`United States`, df.temp$Colombia), 2)
+
+rm(df.temp)
+```
+
+::: {.content-visible when-format="html"}
+
+### Item Difficulty
+
+::: {.panel-tabset}
+
+#### Comparison
+
+```{r fig-difficulty-comparison, fig.height = 6}
+#| label: fig-item-difficulty-comparison
+#| fig-cap: "Distribution of Item Difficulty (Proportion Correct) for Core Items by Location (Panel A) and Correlation Between Estimates in the Two Locations (Panel B)."
+plot1 <- df.properties %>%
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = p, fill = location)) +
+  geom_density(colour = "white", binwidth = 10, alpha = .5) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+plot2 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, p, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = p) |> 
+  ggplot(aes(x = Colombia, y = `United States`)) +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  stat_cor() +
+  theme_classic() +
+  labs(x = "Item Difficulty in Colombia",
+       y = "Item Difficulty in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+#### Combination
+
+```{r fig-difficulty-combination, fig.height = 6}
+#| label: fig-item-difficulty-combination
+#| fig-cap: "Item Difficulty (Proportion Correct) for Core Items Combined Across Locations."
+plot1 <- df.properties %>%
+  filter(location == "all") |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill = col.roar, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items"
+       ) +
+  scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "all") |> 
+  ggplot(aes(x = p, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+#### Colombia
+
+```{r fig-difficulty-colombia, fig.height = 6}
+#| label: fig-item-difficulty-colombia
+#| fig-cap: "Item Difficulty (Proportion Correct) for Core Items in the Colombian Sub-sample."
+plot1 <- df.properties %>%
+  filter(location == "Colombia") |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items"
+       ) +
+  scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "Colombia") |> 
+  ggplot(aes(x = p, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, position = 'identity') +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+#### United States
+
+```{r fig-difficulty-us, fig.height = 6}
+#| label: fig-item-difficulty-us
+#| fig-cap: "Item Difficulty (Proportion Correct) for Core Items in the United States Sub-sample."
+plot1 <- df.properties %>%
+  filter(location == "United States") |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill = col.usl, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items"
+       ) +
+  scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "United States") |> 
+  ggplot(aes(x = p, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+:::
+
+### Point-biserial (Item-total) Correlations
+
+::: {.panel-tabset}
+
+#### Comparison
+
+```{r fig-pbis-comparison, fig.height = 6}
+#| label: fig-pbis-comparison
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations by for Core Items by Location (Panel A) and Correlation Between Estimates in the Two Locations (Panel B)."
+
+plot1 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = location)) +
+  geom_density(colour = "white", bins = 30, alpha = .5) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Location"
+       ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+plot2 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, pbis, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = pbis) |> 
+  ggplot(aes(x = Colombia, y = `United States`)) +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  stat_cor() +
+  theme_classic() +
+  labs(x = "Item-total Correlations in Colombia",
+       y = "Item-total Correlations in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.8, .2))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+#### Combination 
+
+```{r fig-pbis-combination, fig.height = 6}
+#| label: fig-pbis-combination
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For Both Locations Combined."
+
+plot1 <- df.properties |> 
+  filter(location == "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis)) +
+  geom_histogram(fill = col.roar, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items"
+       )
+
+plot2 <- df.properties %>%
+  filter(location == "all") |>
+  ggplot(aes(x = pbis, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+#### Colombia 
+
+```{r fig-pbis-colombia, fig.height = 6}
+#| label: fig-pbis-colombia
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For Colombian Sub-sample."
+
+plot1 <- df.properties |> 
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items"
+       )
+
+plot2 <- df.properties %>%
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+#### United States
+
+```{r fig-pbis-us, fig.height = 6}
+#| label: fig-pbis-us
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) for the United States Sub-sample."
+
+plot1 <- df.properties |> 
+  filter(location == "United States",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items"
+       )
+
+plot2 <- df.properties %>%
+  filter(location == "United States",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+:::
+
+### Point-biserial (WM-LWID-total) Correlations
+
+```{r pbis-wm-colombia, fig.height = 6}
+#| label: fig-pbis-wm-colombia
+#| fig-cap: "Distribution of Item-WM-LWID (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For Part of Colombian Sub-sample."
+
+plot1 <- df.properties |> 
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis.lwid)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Point-biserial Correlations with WM Letter-word ID Raw Scores",
+       y = "No. of Items"
+       )
+
+plot2 <- df.properties %>%
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis.lwid, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Point-biserial Correlations with WM Letter-word ID Raw Scores",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 1)
+fig1
+```
+
+:::
+
+For the initial descriptive analysis, item difficulty is calculated as the proportion of all respondents that responded correctly to a given item.
+Panel A in [@fig-item-properties] shows that, for both sub-samples, item difficulty follows a bimodal distribution with real words (right peak) being easier than pseudowords (left peak).
+The shift in positions of the distributions indicates that, on average, items are easier for the Colombian students (which cover a much larger grade range).
+The very high correlation between item difficulty in the two sub-samples (*r* = `r r.difficulty.core`) indicates that the relative positions of items on item difficulty distribution are very similar in both sub-samples.
+This finding also holds in the separate analysis for grades 1 and 2 only (Panel A of [@fig-item-properties-k2]).
+
+Point-biserial correlations between student responses to a given ROAR Palabra item and their raw ROAR Palabra score (proportion correct) are indicators of the degree to which an individual item taps into the same construct that is measured by the overall scale.
+Panel B of [@fig-item-properties] shows that ROAR Palabra forms a mostly very coherent scale;
+within the Colombian sub-sample, all correlations are > .20, within the US sub-sample, the majority is, too.
+
+Further, point-biserial correlations between students' responses to individual ROAR Palabra items and their WM-LWID raw score indicate to what extent each item is related to the construct of word reading.
+Panel C in [@fig-item-properties] shows the distribution of these point-biserial correlations.
+While some real words show very low (< .10) point-biserial correlations, the majority of items fall into an acceptable range.
+
+Overall correlations of item parameters between the two study locations show similar trends when separately analysed for the lower grades only.
+Panels A to C of [@fig-item-properties-k2] report repetitions of the analyses described here for the subs-sample of students in grades 1 and 2 only.
+
+```{r fig-item-properties, fig.height = 6}
+#| label: fig-item-properties
+#| fig-cap: "ROAR Palabra Item Properties with Item Difficulty  (Proportion Correct) Distribution in Panel A, Item-total (Point-biserial) Correlations in Panel B, and Item-WM-LWID (Point-biserial) Correlations in Panel C (Colombian Subsample Only), for Core Items."
+#| fig-pos: h
+
+df.temp <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, p, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = p)
+
+r.diff <- paste0(round(cor(df.temp$`United States`, df.temp$Colombia), 2), "***")
+
+plot.diff <- df.temp |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item Difficulty in Colombia",
+       y = "Item Difficulty in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.8, .15)) +
+  annotate("text",
+           x = 0.75,
+           y = 0.65,
+           label = paste0("r = ", r.diff)
+           )
+
+plot.diff <- ggMarginal(plot.diff,
+                        type = "densigram",
+                        alpha = .5,
+                        groupFill = TRUE,
+                        colour = "white",
+                        alpha = 1
+                        )
+
+# plot ITCs
+df.temp <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, pbis, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = pbis)
+
+r.itcs <- paste0(round(cor(df.temp$`United States`, df.temp$Colombia), 2), "***")
+
+plot.itcs <- df.temp |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item-total Correlations in Colombia",
+       y = "Item-total Correlations in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.8, .15)) +
+  annotate("text",
+           x = 0.5,
+           y = 0.25,
+           label = paste0("r = ", r.itcs)
+           )
+
+plot.itcs <- ggMarginal(plot.itcs,
+                        type = "densigram",
+                        alpha = .5,
+                        groupFill = TRUE,
+                        colour = "white",
+                        alpha = 1
+                        )
+
+plot.wm <- df.properties |> 
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis.lwid)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  scale_x_continuous(limits = c(0, .45)) +
+  labs(x = "Point-biserial Correlations with Woodcock-Muñoz Letter-word Identification Raw Scores",
+       y = "No. of Items"
+       )
+
+fig1 <- ggarrange(plot.diff, plot.itcs, labels = c("A", "B"),
+          nrow = 1)
+fig2 <- ggarrange(fig1, plot.wm,
+                  nrow = 2,
+                  heights = c(.7, .3),
+                  labels = c("", "C"))
+fig2
+```
+
+
+## IRT Model Building {#sec-irt-model-building}
+
+We started the model building process with the 70 items in the core corpus (35 real words and 35 pseudowords), because we had sufficiently large numbers of observations in both contexts.
+For the extended-corpus items, of which test-takers only saw random selection of 30 out of the 308 items, response counts in the US sub-sample were low. 
+Therefore, we decided to add those items at a later stage, after the calibration of a measurement model based on the core corpus.
+Prior to the estimation of an IRT model, we carried out four item selection steps as follows:
+
+### Participant Exclusion Criteria: Median Response Time
+
+```{r irt-exclusion-criteria-1-rt}
+# baseline counts
+n1 <- length(unique(df$user.assessmentPid))
+n1.co <- df |> filter(location == "Colombia") |> select(user.assessmentPid) |> unique() |> nrow()
+n1.us <- df |> filter(location == "United States") |> select(user.assessmentPid) |> unique() |> nrow()
+
+# exclude data from students with median response times less than 450ms
+ids.excl.rt <- df |> 
+  left_join(df.rt) |> 
+  filter(rt.core.median < 450) |> 
+  pull(user.assessmentPid) |> 
+  unique()
+
+df.temp <- df.wide |> 
+  filter(!user.assessmentPid %in% ids.excl.rt,
+         location != "all")
+
+n2 <- length(unique(df.temp$user.assessmentPid))
+n2.co <- df.temp |> filter(location == "Colombia") |> select(user.assessmentPid) |> unique() |> nrow()
+n2.us <- df.temp |> filter(location == "United States") |> select(user.assessmentPid) |> unique() |> nrow()
+
+perc.excl.rt <- round((1 - n2/n1) * 100, 2)
+perc.excl.rt.co <- round((1 - n2.co/n1.co) * 100, 2)
+perc.excl.rt.us <- round((1 - n2.us/n1.us) * 100, 2)
+```
+
+As a first data cleaning step prior to calibrating an IRT model, we excluded data from participants whose response behaviour was indicative of random guessing or clicking through the task without a serious attempt at the task.
+This was operationalized as a median response time < 450 ms and a score of < 65 % correct.
+This resulted in an exclusion of `r perc.excl.rt` % (*n = `r n1-n2`*) of participants in total, `r perc.excl.rt.co` % (*n = `r n1.co-n2.co`*) of Colombian participants and `r perc.excl.rt.us` % (*n = `r n1.us-n2.us`*) of participants from the US.
+Item counts are not affected by this exclusion criterion.
+
+### Item Exclusion Criteria
+
+#### Criterion 1: Item-total Correlations
+
+```{r irt-exclusion-criteria-2-itc}
+# exclude items with ITCs <= .1 within each location
+
+# US
+real.excl.pbis.us <- df.properties |> 
+  filter(location == "United States" & pbis.core < .1 & realpseudo == "real") |> 
+  pull(item)
+real.excl.pbis.us.core <- intersect(real.excl.pbis.us, items.core)
+pseudo.excl.pbis.us <- df.properties |> 
+  filter(location == "United States" & pbis.core < .1 & realpseudo == "pseudo") |> 
+  pull(item)
+pseudo.excl.pbis.us.core <- intersect(pseudo.excl.pbis.us, items.core)
+items.excl.pbis.us <- union(real.excl.pbis.us, pseudo.excl.pbis.us)
+items.excl.pbis.us.core <- union(real.excl.pbis.us.core, pseudo.excl.pbis.us.core)
+
+n.real.excl.pbis.us <- length(real.excl.pbis.us)
+n.real.excl.pbis.us.core <- length(real.excl.pbis.us.core)
+n.pseudo.excl.pbis.us <- length(pseudo.excl.pbis.us)
+n.pseudo.excl.pbis.us.core <- length(pseudo.excl.pbis.us.core)
+n.items.excl.pbis.us <- n.real.excl.pbis.us + n.pseudo.excl.pbis.us
+n.items.excl.pbis.us.core <- length(items.excl.pbis.us.core)
+
+# CO
+real.excl.pbis.co <- df.properties |> 
+  filter(location == "Colombia" & pbis.core < .1 & realpseudo == "real") |> 
+  pull(item)
+real.excl.pbis.co.core <- intersect(real.excl.pbis.co, items.core)
+pseudo.excl.pbis.co <- df.properties |> 
+  filter(location == "Colombia" & pbis.core < .1 & realpseudo == "pseudo") |> 
+  pull(item)
+pseudo.excl.pbis.co.core <- intersect(pseudo.excl.pbis.co, items.core)
+items.excl.pbis.co <- union(real.excl.pbis.co, pseudo.excl.pbis.co)
+items.excl.pbis.co.core <- union(real.excl.pbis.co.core, pseudo.excl.pbis.co.core)
+
+n.real.excl.pbis.co <- length(real.excl.pbis.co)
+n.real.excl.pbis.co.core <- length(real.excl.pbis.co.core)
+n.pseudo.excl.pbis.co <- length(pseudo.excl.pbis.co)
+n.pseudo.excl.pbis.co.core <- length(pseudo.excl.pbis.co.core)
+n.items.excl.pbis.co <- n.real.excl.pbis.co + n.pseudo.excl.pbis.co
+n.items.excl.pbis.co.core <- length(items.excl.pbis.co.core)
+
+# Combination
+real.excl.pbis <- union(real.excl.pbis.us, real.excl.pbis.co)
+real.excl.pbis.core <- union(real.excl.pbis.us.core, real.excl.pbis.co.core)
+pseudo.excl.pbis <- union(pseudo.excl.pbis.us, pseudo.excl.pbis.co)
+pseudo.excl.pbis.core <- union(pseudo.excl.pbis.us.core, pseudo.excl.pbis.co.core)
+items.excl.pbis <- union(real.excl.pbis, pseudo.excl.pbis)
+items.excl.pbis.core <- union(real.excl.pbis.core, pseudo.excl.pbis.core)
+
+n.real.excl.pbis <- n.real.excl.pbis.us + n.real.excl.pbis.co
+n.real.excl.pbis.core <- n.real.excl.pbis.us.core + n.real.excl.pbis.co.core
+n.pseudo.excl.pbis <- n.pseudo.excl.pbis.us + n.pseudo.excl.pbis.co
+n.pseudo.excl.pbis.core <- n.pseudo.excl.pbis.us.core + n.pseudo.excl.pbis.co.core
+n.items.excl <- n.real.excl.pbis + n.pseudo.excl.pbis
+n.items.excl.core <- n.real.excl.pbis.core + n.pseudo.excl.pbis.core
+```
+
+As a first step toward ensuring we are measuring a single and coherent construct, we proceeded to eliminate all those items that exhibited point-biserial correlations with the total task score (proportion of correct responses) of less than .10---a very lenient threshold.
+In other words, this means removing those items whose response patterns are unrelated to the overall proportion correct scores. 
+To account for both contexts, we applied this criterion separately to the Colombian and the US sub-sample.
+This resulted in the exclusion of `r round((n.items.excl.pbis.us.core/70)*100, 0)`% of items (`r n.items.excl.pbis.us.core` items; `r n.real.excl.pbis.us.core` real words and `r n.pseudo.excl.pbis.us.core` pseudowords) based on data from the US.
+<!-- Real words excluded were *`r paste0(real.excl.pbis.us.core, collapse = ", ")`*, -->
+The pseudowords excluded were *`r paste0(pseudo.excl.pbis.us.core, collapse = ", ")`*.
+No items had to be excluded based on data from Colombia. 
+
+#### Criterion 2: Item-WM Correlations (Colombia only)
+
+```{r irt-exclusion-criteria-3-wm}
+real.excl.pbis.wm.co <- df.properties |> 
+  filter(location == "Colombia" & pbis.lwid < .1 & realpseudo == "real") |> 
+  pull(item)
+real.excl.pbis.wm.co.core <- intersect(real.excl.pbis.wm.co, items.core)
+pseudo.excl.pbis.wm.co <- df.properties |> 
+  filter(location == "Colombia" & pbis.lwid < .1 & realpseudo == "pseudo") |> 
+  pull(item)
+pseudo.excl.pbis.wm.co.core <- intersect(pseudo.excl.pbis.wm.co, items.core)
+items.excl.pbis.wm.co <- union(real.excl.pbis.wm.co, pseudo.excl.pbis.wm.co)
+items.excl.pbis.wm.co.core <- union(real.excl.pbis.wm.co.core, pseudo.excl.pbis.wm.co.core)
+
+n.real.excl.pbis.wm.co <- length(real.excl.pbis.wm.co)
+n.real.excl.pbis.wm.co.core <- length(real.excl.pbis.wm.co.core)
+n.pseudo.excl.pbis.wm.co <- length(pseudo.excl.pbis.wm.co)
+n.pseudo.excl.pbis.wm.co.core <- length(pseudo.excl.pbis.wm.co.core)
+n.items.excl.pbis.wm.co <- n.real.excl.pbis.wm.co + n.pseudo.excl.pbis.wm.co
+n.items.excl.pbis.wm.co.core <- n.real.excl.pbis.wm.co.core + n.pseudo.excl.pbis.wm.co.core
+
+n.both <- length(intersect(items.excl.pbis.wm.co, items.excl.pbis))
+n.both.core <- length(intersect(items.excl.pbis.wm.co.core, items.excl.pbis.core))
+```
+
+Next, we computed correlations to WM-LWID raw scores and had planned to exclude all items that exhibited point-biserial correlations < .10.
+<!-- This process flagged `r round((n.items.excl.pbis.wm.co.core/70)*100, 0)` % of items (*n* = `r n.items.excl.pbis.wm.co.core`) for exclusion. -->
+<!-- Of these items, 1 was already flagged in step 2, so that `r n.items.excl.pbis.wm.co.core` items were excluded based on point-biserial correlations with the WM-LWID raw scores. -->
+No items were flagged in this stage.
+
+#### Criterion 3: Item-fit
+
+```{r irt-exclusion-criteria-4-item-fit}
+# create df for IRT modelling for purpose of item pruning based on in/outfit
+df.fit <- df.wide |> 
+  filter(!user.assessmentPid %in% ids.excl.rt,
+         location != "all"
+         ) |> 
+  select(-all_of(items.excl.pbis),
+         -all_of(items.excl.pbis.wm.co),
+         -contains("WM_"),
+         -location,
+         -all_of(items.rand)
+         )
+df.fit.properties <- df.properties |> 
+  filter(!item %in% items.excl.pbis,
+         !item %in% items.excl.pbis.wm.co,
+         !item %in% items.rand
+         )
+
+# code adapted from Yeatman et al. 2021
+fit.thresh = c(.6, 1.4)
+outliers <- TRUE
+maxiter <- 20
+iteration <- 0
+
+while (outliers > 0 & iteration < maxiter){
+  iteration <- iteration + 1
+  start.dim <- dim(df.fit)[2]-1
+  
+    mR <- mirt(data = df.fit |>select(-c(user.assessmentPid)),
+             model = 1,
+             itemtype = 'Rasch',
+             guess = 0.5, # 2AFC
+             verbose = FALSE
+             )
+  
+  mR.itemfit = itemfit(mR, fit_stats = 'infit')
+  good.items = as.character(mR.itemfit$item[mR.itemfit$infit>fit.thresh[1] & 
+                            mR.itemfit$outfit > fit.thresh[1] &
+                            mR.itemfit$infit < fit.thresh[2] &
+                            mR.itemfit$outfit < fit.thresh[2]])
+  outliers <- dim(df.fit)[2] - length(good.items) -1 #-1 because subj was removed in fitting
+  # Remove items with low or extreme slope and refit
+  df.fit <- select(df.fit, all_of(c('user.assessmentPid',good.items)))
+  end.dim <- dim(df.fit)[2]-1
+}
+```
+
+```{r core-model-1pl}
+# fit final model
+mR <- mirt(select(df.fit,-user.assessmentPid),
+           model = 1,
+           itemtype = 'Rasch',
+           gyuess = .5,
+           verbose = FALSE
+           )
+# Get coeficients
+mR.coef <- coef(mR,simplify=TRUE, IRTpars = TRUE) 
+mR.coef <- arrange(tibble::rownames_to_column(as.data.frame(mR.coef$items),'words'),b)
+
+removed.real.fit <- df.fit.properties |> 
+  filter(location == "all",
+         realpseudo == "real",
+         !item %in% mR.coef$words
+         ) |> 
+  pull(item)
+
+removed.pseudo.fit <- df.fit.properties |> 
+  filter(location == "all",
+         realpseudo == "pseudo",
+         !item %in% mR.coef$words) |> 
+  pull(item)
+
+n.removed.fit <- length(removed.real.fit) + length(removed.pseudo.fit)
+```
+
+Next, we iteratively fit a 1PL model and assessed item fit. 
+A lenient range for good item in-fit and out-fit parameters is .60--1.40.
+Only `r n.removed.fit` items fell outside this range.
+
+```{r core-model-item-counts}
+df.irt.core.properties <- df.fit.properties |> 
+  filter(!item %in% removed.real.fit,
+         !item %in% removed.pseudo.fit,
+         !item %in% items.excl.pbis.wm.co,
+         !item %in% removed.pseudo.fit,
+         !item %in% items.rand
+         )
+
+df.irt.core <- df.wide |> 
+  filter(!user.assessmentPid %in% ids.excl.rt,
+         location != "all") |> 
+  select(-all_of(items.excl.pbis),
+         -all_of(items.excl.pbis.wm.co),
+         -all_of(removed.pseudo.fit),
+         -all_of(removed.real.fit),
+         -contains("WM_"),
+         -all_of(items.rand),
+         -location
+         )
+# counts
+n.items.irt.core <- length(unique(df.irt.core.properties$item))
+n.real.irt.core <- df.irt.core.properties |> 
+  filter(location == "all" & realpseudo == "real") |> 
+  nrow()
+n.pseudo.irt.core <- df.irt.core.properties |> 
+  filter(location == "all" & realpseudo == "pseudo") |> 
+  nrow()
+```
+
+### Core Model
+
+After applying the four above criteria, the resultant core item pool contains a total of `r n.items.irt.core` items (`r n.real.irt.core` real words and `r n.pseudo.irt.core` pseudowords).
+While implemented using a 1PL model, we also fit a 2PL model to obtain item discrimination information.
+The item discrimination value ($\alpha$) indicates the steepness of the slope of the item characteristic curve and is an indicator of how well that item discriminates between two respondents whose ability levels are around the item's difficulty.
+Typically, the range of the $\alpha$ parameter is from 0 to 3, with an $\alpha < .50$ indicating less productive measurement.
+None of the items fall below that threshold.
+Moreover, as was the case with the raw score, the distributions of theta scores show differences between the US and Colombian sub-samples, though these disappear when filter to only draw on the earlier grades.
+
+```{r core-model-2pl}
+m2PL <- mirt(select(df.fit,-user.assessmentPid),
+             model = 1,
+             itemtype = '2PL',
+             guess = .5,
+             verbose = FALSE
+             )
+m2PL.coef <- coef(m2PL,simplify=TRUE, IRTpars = TRUE) 
+m2PL.coef <- arrange(tibble::rownames_to_column(as.data.frame(m2PL.coef$items),'words'),b) |> 
+  rename(item = words)
+```
+
+::: {.content-visible when-format="html"}
+
+[@fig-irt-item-properties-core] graphically summarizes the difficulty and discrimination parameters of the core model.
+
+```{r fig-irt-item-properties-core}
+#| label: fig-irt-item-properties-core
+#| fig-cap: "Item Difficulty and Item Discrimination Parameters for the Core Model."
+
+# plot properties of IRT model
+plot1 <- m2PL.coef |>
+  left_join(df.properties |>  select(c(item, realpseudo)) |> unique()) |> 
+  ggplot(aes(x = b, y = a, colour = realpseudo)) +
+  geom_point(alpha = 0) +
+  theme_classic() +
+  geom_text(aes(label = item), position = position_jitter(), alpha = .7) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.15, .85)) +
+  labs(x = "Item Difficulty",
+       y = "Item Discrimination",
+       colour = "Stimulus Type"
+       ) +
+  scale_color_manual(values = c(col.pseudo, col.real))
+
+plot <- ggMarginal(plot1,
+                   type = "densigram",
+                   alpha = .5,
+                   groupFill = TRUE,
+                   colour = "white",
+                   alpha = 1
+                   )
+plot
+```
+
+#### Distribution of Theta Scores
+
+::: {.panel-tabset}
+##### Comparison
+
+```{r theta-dist-comparison, fig.height = 3}
+#| label: fig-theta-dist-core
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Core Model."
+
+plot <- df.irt.core |> 
+  mutate(theta = fscores(mR, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  ggplot(aes(x = theta, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Score",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.85, .8))
+plot
+```
+
+##### Combination
+
+```{r theta-dist-combination, fig.height = 3}
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Core Model (Combined Across Locations)."
+plot1 <- df.irt.core |> 
+  mutate(theta = fscores(mR, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  ggplot(aes(x = theta)) +
+  geom_histogram(colour = "white", fill = col.roar, bins = 50) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Scores",
+       y = "No. of Individuals"
+       ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+##### Colombia
+
+```{r colombia-theta-dist, fig.height = 3}
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Core Model (Colombia Only)."
+
+plot1 <- df.irt.core |> 
+  mutate(theta = fscores(mR, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  filter(location == "Colombia") |> 
+  ggplot(aes(x = theta)) +
+  geom_histogram(colour = "white", fill = col.col, bins = 50) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Scores",
+       y = "No. of Individuals"
+       ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+##### United States
+
+```{r theta-dist-us, fig.height = 3}
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Core Model (United States Only)."
+
+plot1 <- df.irt.core |> 
+  mutate(theta = fscores(mR, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  filter(location == "United States") |> 
+  ggplot(aes(x = theta)) +
+  geom_histogram(colour = "white", fill = col.usl, bins = 50) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Scores",
+       y = "No. of Individuals"
+       ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+:::
+
+:::
+
+### Final Model
+
+Before adding the items from the extended corpus to the core measurement model, we subjected them to the same four criteria we used to prune the core item pool.
+We then fixed the core items' parameters and refit a 1PL model with guessing parameter to estimate the new (extended-corpus) items' difficulty parameters.
+We also reran the 2PL model to obtain item discrimination estimates, this time only estimating the new items' discrimination parameters.
+[@fig-final-model] summarizes the final models' characteristics and performance:
+Panel A shows the resultant distribution of item difficulty and discrimination parameters; Panel B shows the test information curve and the associated standard error; and panel C shows the distribution of theta scores by location for grades 1 and 2 (which can be compared fairly, as they are covered in both sub-samples), which closely mirror the distributions obtained using the core model.
+@fig-thetas-all-grades shows the theta score distribution for the entire grade distribution.
+
+```{r final-model-1pl}
+
+df.irt.all <- df.wide |> 
+  filter(!user.assessmentPid %in% ids.excl.rt,
+         location != "all") |> 
+  select(-all_of(items.excl.pbis),
+         -all_of(items.excl.pbis.wm.co),
+         -all_of(removed.pseudo.fit),
+         -all_of(removed.real.fit),
+         -contains("WM_"),
+         -location
+         )
+
+# Rebuild original model to obtain core items' parameters
+mR <- mirt(df.irt.core |> select(-c(user.assessmentPid)),
+           1,
+           itemtype = 'Rasch', 
+           guess = .5,
+           verbose = FALSE
+           )
+# extract the item parameters from the original model
+original_params <- coef(mR, IRTpars = TRUE)  # Set IRTpars to TRUE to get parameters in IRT metric
+
+# Fix the original item parameters and estimate parameters for the new items
+fixed_original_params <- coef(mR, IRTpars = TRUE, simplify = TRUE)
+
+# Create a parameter structure for fixing original items and freeing new items
+pars <- fixed_original_params
+
+# Set 'est' to FALSE for all original item parameters to fix them
+pars$est[pars$item <= ncol(df.irt.core |> select(-c(user.assessmentPid)))] <- FALSE
+
+# Fit the model again, but only estimate parameters for the new items
+mR.all <- mirt(df.irt.all |> select(-user.assessmentPid),
+               1,
+               itemtype = 'Rasch',
+               guess = .5,
+               pars = pars,
+               verbose = FALSE
+               )
+
+coefs.all <- coef(mR.all, IRTpars = TRUE, simplify = TRUE)
+
+df.coefs.all <- as.data.frame(coefs.all)
+df.coefs.all <- df.coefs.all |> 
+  mutate(item = rownames(df.coefs.all)) |> 
+  left_join(df |> select(c(item = word, realpseudo, corpusId)) |> unique())
+```
+
+```{r fig-tic-final-model}
+# Ability range
+theta <- seq(-5, 3, length.out = 100)
+# Compute Test Information Curve (TIC)
+tic <- testinfo(mR.all, Theta = theta)
+# Compute Standard Error (SE)
+se <- 1 / sqrt(tic)
+# Combine data into a single data frame for ggplot
+curve_data <- data.frame(
+  Theta = theta,
+  TIC = tic,
+  SE = se
+)
+
+plot.tic <- ggplot(curve_data, aes(x = Theta)) +
+  geom_line(aes(y = TIC, color = "TIC"), size = 1) +
+  geom_line(aes(y = SE * max(TIC), color = "SE"), size = 1, linetype = "dashed") +
+  scale_y_continuous(
+    limits = c(0, 30),
+    name = "Information",
+    sec.axis = sec_axis(~ . / max(curve_data$TIC), name = "Standard Error")
+  ) +
+  scale_color_manual(
+    values = c("TIC" = "blue", "SE" = "red"),
+    labels = c("TIC" = "Information", "SE" = "SE"),
+    name = "Metric"
+  ) +
+  labs(
+    x = "ROAR Palabra Theta Score"
+  ) +
+  theme_classic() +
+  theme(panel.background = element_rect(fill = 'transparent'),
+        plot.background = element_rect(fill = 'transparent', color = NA),
+        legend.position = c(.5, .95),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8)
+        ) +
+  guides(color = guide_legend(nrow = 1,
+                              title.position = "left",
+                              label.position = "right",
+                              direction = "horizontal",
+                              override.aes = list(alpha = 1),
+                              reverse = TRUE
+                              )
+    )
+```
+
+```{r final-model-2pl}
+# Rebuild original 2PL model 
+m2PL <- mirt(df.irt.core |> select(-c(user.assessmentPid)),
+             1,
+             itemtype = '2PL',
+             guess = .5,
+             verbose = FALSE)
+# extract the item parameters from the original model
+original_params <- coef(m2PL, IRTpars = TRUE)  # Set IRTpars to TRUE to get parameters in IRT metric
+
+# Fix the original item parameters and estimate parameters for the new items
+fixed_original_params <- coef(m2PL, IRTpars = TRUE, simplify = TRUE)
+
+# Create a parameter structure for fixing original items and freeing new items
+pars <- fixed_original_params
+
+# Set 'est' to FALSE for all original item parameters to fix them
+pars$est[pars$item <= ncol(df.irt.all |> select(-c(user.assessmentPid)))] <- FALSE
+
+m2PL.all <- mirt(df.irt.all |> select(-user.assessmentPid),
+                 1,
+                 itemtype = '2PL',
+                 guess = .5,
+                 pars = pars,
+                 verbose = FALSE
+                 )
+
+m2PL.all.coef <- coef(m2PL.all,simplify=TRUE, IRTpars = TRUE) 
+m2PL.all.coef <- arrange(tibble::rownames_to_column(as.data.frame(m2PL.all.coef$items),'words'),b) |> 
+  rename(item = words)
+```
+
+```{r fig-final-model, cache=FALSE, fig.height = 5}
+#| label: fig-final-model
+#| fig-cap: "Summary of Final ROAR Palabra Item-response Theory Model, Showing the Bivariate Distribution of Item Difficulty and Discrimination (Panel A), the Test Information Curve With the Associated Standard Error (SE; Panel B), and the Distribution of Theta Scores for the Overlapping Grade Range (Grades 1 and 2) by Location (Panel C)."
+
+# plot properties of IRT model
+plot1 <- m2PL.all.coef |>
+  left_join(df.properties |>  select(c(item, realpseudo, corpus)) |> unique()) |> 
+  ggplot(aes(x = b, y = a, colour = realpseudo)) +
+  geom_point(alpha = 0) +
+  theme_classic() +
+  geom_text(aes(label = item, alpha = corpus), position = position_jitter()) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.2, .85)) +
+  labs(x = "Item Difficulty",
+       y = "Item Discrimination",
+       colour = "Stimulus Type"
+       ) +
+  scale_color_manual(values = c(col.pseudo, col.real)) +
+  scale_alpha_manual(values = c(.8, .4)) +
+  guides(alpha = FALSE)
+
+plot.itemproperties <- ggMarginal(plot1,
+                                  type = "densigram",
+                                  # binwidth = 0.1,
+                                  position = "identity",
+                                  alpha = .5,
+                                  groupFill = TRUE,
+                                  colour = "white",
+                                  alpha = 1
+                                  )
+# plot theta distribution
+plot.theta <- df.irt.all |>
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |>
+  select(c(user.assessmentPid, theta)) |>
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, grade, location)) |>
+              unique()
+            ) |>
+  filter(grade %in% c(1, 2)) |> 
+  ggplot(aes(x = theta, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Score",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_y_continuous(limits = c(0, .45)) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.8, .8))
+
+rightplot <- ggarrange(plot.tic, plot.theta,
+                       nrow = 2,
+                       labels = c("B", "C")
+                       )
+plot <- ggarrange(plot.itemproperties, rightplot,
+                  nrow = 1,
+                  widths = c(.6, .4),
+                  labels = c("A", "")
+                  )
+plot
+```
+
+
+::: {.content-visible when-format="html"}
+
+#### Distribution of Theta Scores
+
+::: {.panel-tabset}
+
+##### Comparison
+
+```{r fig-theta-dist-final-comparison, fig.height = 3}
+#| label: fig-theta-dist-final
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Final Model."
+
+plot <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  ggplot(aes(x = theta, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Score",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.85, .8))
+plot
+```
+
+##### Combination
+
+```{r fig-theta-dist-all-combination, fig.height = 3}
+#| label: fig-theta-dist-final-combination
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Final Model (Combined Across Locations)."
+
+plot1 <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  ggplot(aes(x = theta)) +
+  geom_histogram(colour = "white", fill = col.roar, bins = 50) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Scores",
+       y = "No. of Individuals"
+       ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+##### Colombia
+
+```{r fig-theta-dist-all-colombia, fig.height = 3}
+#| label: fig-theta-dist-final-colombia
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Final Model (Colombia Only)."
+
+plot1 <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  filter(location == "Colombia") |> 
+  ggplot(aes(x = theta)) +
+  geom_histogram(colour = "white", fill = col.col, bins = 50) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Scores",
+       y = "No. of Individuals"
+       ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+##### United States
+
+```{r fig-theta-dist-all-us, fig.height = 3}
+#| label: fig-theta-dist-final-us
+#| fig-cap: "Distribution of ROAR Palabra Theta Scores Computed Based on Final Model (United States Only)."
+
+plot1 <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |> 
+  select(c(user.assessmentPid, theta)) |> 
+  left_join(df |>
+              filter(location != "all") |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |> 
+  filter(location == "United States") |> 
+  ggplot(aes(x = theta)) +
+  geom_histogram(colour = "white", fill = col.usl, bins = 50) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Scores",
+       y = "No. of Individuals"
+       ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+:::
+
+:::
+
+#### Reliability
+
+```{r reliability}
+
+# overall
+m.rxx <- marginal_rxx(mR.all)
+theta_se <- fscores(mR.all, full.scores.SE = TRUE)
+e.rxx <- empirical_rxx(theta_se)
+
+# by location
+df.rel <- df.irt.all |> 
+  left_join(df |> select(c(user.assessmentPid,
+                           location = location
+                           )) |> unique()
+            )
+
+locations = unique(df.rel$location)
+
+# Calculate reliability separately by location (code adapted from ROAR technical manual)
+tbl.reliability.location = tibble(location = locations,
+                                  n = NaN,
+                                  r = NaN
+                                  )
+
+for (l in locations){
+  rp.location <- dplyr::select(dplyr::filter(df.rel, location == l),-c(user.assessmentPid, location))
+  tbl.reliability.location$n[tbl.reliability.location$location == l] = dim(rp.location)[1]
+  tbl.reliability.location$r[tbl.reliability.location$location == l] <- empirical_rxx(fscores(mR.all, response.pattern = rp.location, full.scores.SE = TRUE))
+}
+
+n.rel.us <- tbl.reliability.location[1,2]
+r.rel.us <- round(tbl.reliability.location[1,3], 3)
+n.rel.co <- tbl.reliability.location[2,2]
+r.rel.co <- round(tbl.reliability.location[2,3], 3)
+```
+
+We estimated empirical reliability for the final model (*n* = `r n2`), comprising both core and extended-corpus items, using [@eq-empirical_rxx].
+Overall reliability is high, with $\rho_{xx^\prime}$ = `r round(e.rxx, 3)`, as are reliability estimates for Colombia ($\rho_{xx^\prime}$ = `r r.rel.co`, *n* = `r n.rel.co`) and the United States ($\rho_{xx^\prime}$ = `r r.rel.us`, *n* = `r n.rel.us`), separately.
+[@tbl-reliability-grade] shows empirical reliability estimates by grade, drawing on both the Colombian and US data.
+
+```{r tbl-reliability-grade}
+#| label: tbl-reliability-grade
+#| tbl-cap: "ROAR Palabra Empirical Reliability by Grade (Colombia and US)."
+
+df.rel <- df.irt.all |> 
+  left_join(df |> select(c(user.assessmentPid,
+                           grade
+                           )) |> unique()
+            ) |> 
+  filter(!is.na(grade),
+         grade != 99,
+         grade != 0,
+         grade != 12) |> 
+  arrange(grade)
+
+df.rel <- df.rel |> 
+  mutate(grade = "All") |> 
+  rbind(df.rel)
+
+grades = unique(df.rel$grade)
+
+# Calculate reliability separately by grade (code adapted ROAR technical manual)
+tbl.reliability.grade = tibble(grade = grades,
+                           n = NaN,
+                           r = NaN
+                           )
+
+for (g in grades){
+  rp.grade <- dplyr::select(dplyr::filter(df.rel, grade == g),-c(user.assessmentPid, grade))
+  tbl.reliability.grade$n[tbl.reliability.grade$grade == g] = dim(rp.grade)[1]
+  tbl.reliability.grade$r[tbl.reliability.grade$grade == g] <- empirical_rxx(fscores(mR.all, response.pattern = rp.grade, full.scores.SE = TRUE))
+}
+
+tbl.reliability.grade |> 
+  mutate(r = round(r, 3),
+         grade = if_else(grade == "All", grade, paste("Gr ", grade))
+         ) |> 
+  t() |> 
+  as.data.frame() |> 
+  janitor::row_to_names(row_number = 1) |> 
+  kable(booktabs = TRUE)
+```
+
+\newpage
+#### Parameter Invariance
+
+```{r param-inv-df}
+df.paraminv <- df.irt.core |> 
+  left_join(df |> 
+              select(c(user.assessmentPid, grade, location)) |> 
+              unique()
+            ) |> 
+  filter(grade %in% c(1, 2)) |> 
+  select(-grade)
+```
+
+
+```{r param-inv-simulation, message = FALSE, warning = FALSE, results='hide'}
+# code modified from: https://github.com/yeatmanlab/ROAR-CAT-Public/blob/main/analysis/parameter_invariance.Rmd
+
+get_params <- function (df, id) {
+  df.response <- df |>
+    filter(location == id) |>
+    select(-c(location))
+  
+  r.m.g <- mirt(as.matrix(df.response), 1, itemtype = "Rasch", guess = 0.5, SE = TRUE, 
+              technical = list(NCYCLES = 200))
+  
+  params <- data.frame(coef(r.m.g, IRTpars = TRUE, simplify = TRUE))$items.b
+  
+  params
+}
+
+
+list.cor <- NULL
+list.cor.lower <- NULL
+list.cor.higher <- NULL
+
+for (i in 1:50){
+  print(i)
+  df.paraminv.rand <- df.paraminv |>
+  mutate(location = sample(sample(c("A", "B"), length(df.paraminv$location), 
+                                 prob = c(891/1445,554/1445), replace = TRUE))) |>
+  select(-c(user.assessmentPid))
+  
+  list <- df.paraminv.rand |>
+    group_by(location) |>
+    summarize(across(everything(), mean, na.rm = TRUE))  |>
+    select(-location) |>
+    as.matrix() |>
+    as.numeric()
+  
+  if(!any(list >= 1)) {
+    A <- get_params(df.paraminv.rand,"A")
+    B <- get_params(df.paraminv.rand,"B")
+    
+    cor <- cor.test(A, B)
+    
+    list.cor <- c(list.cor, as.numeric(cor$estimate))
+    
+    list.cor.lower <- c(list.cor.lower, as.numeric(cor$conf.int[1]))
+    list.cor.higher <- c(list.cor.higher, as.numeric(cor$conf.int[2]))
+  }
+}
+
+mean(list.cor)
+mean(list.cor.higher)
+mean(list.cor.lower)
+```
+
+
+```{r fig-param-inv-final, cache=FALSE, fig.height=3.5}
+#| label: fig-param-inv-final
+#| fig-cap: "Parameter Invariance Analysis for 1-Parameter Logistic Model (Grades 1 and 2 Only) in the Form of Correlations Between Jointly and Separately Calibrated Item Parameters for Colombian Sub-sample (Panel A) and United States Sub-sample (Panel B), as Well as Between the Two Separately Calibrated Models (Panel C)."
+
+mR.k2.all <- df.paraminv |> 
+  select(-c(user.assessmentPid, location)) |>
+  mirt(1,
+       itemtype = 'Rasch',
+       guess = .5,
+       verbose = FALSE
+       )
+
+mR.k2.all.coef <- coef(mR.k2.all,simplify=TRUE, IRTpars = TRUE) 
+mR.k2.all.coef <- arrange(tibble::rownames_to_column(as.data.frame(mR.k2.all.coef$items),'words'),b) |> 
+  rename(item = words)
+
+# Combine group data for multi-group analysis
+df.temp <-  df.paraminv |> 
+  left_join(df |> 
+              filter(location != "all") |> 
+              select(c(user.assessmentPid, grade)) |> 
+              unique()
+            ) |> 
+  filter(grade %in% c(1, 2)) |>
+  select(-grade)
+
+# fit model to US only & obtain item parameters
+mR.k2.all.us <- df.temp |> 
+  filter(location == "United States") |> 
+  select(-c(location, user.assessmentPid)) |> 
+  mirt(
+    1,
+    itemtype = 'Rasch',
+    guess = .5,
+    verbose = FALSE
+    )
+mR.k2.all.coef.us <- coef(mR.k2.all.us,simplify=TRUE, IRTpars = TRUE) 
+mR.k2.all.coef.us <- arrange(tibble::rownames_to_column(as.data.frame(mR.k2.all.coef.us$items),'words'),b) |> 
+  rename(item = words,
+         b_us = b)
+
+# fit model to CO only & obtain item parameters
+mR.k2.all.co <- df.temp |> 
+  filter(location == "Colombia") |> 
+  select(-c(location, user.assessmentPid)) |> 
+  mirt(1,
+       itemtype = 'Rasch',
+       guess = .5,
+       verbose = FALSE
+       )
+mR.k2.all.coef.co <- coef(mR.k2.all.co,simplify=TRUE, IRTpars = TRUE) 
+mR.k2.all.coef.co <- arrange(tibble::rownames_to_column(as.data.frame(mR.k2.all.coef.co$items),'words'),b) |> 
+  rename(item = words,
+         b_co = b)
+
+# join to core model's item parameters
+df.param.inv <- mR.k2.all.coef |> 
+  left_join(mR.k2.all.coef.us) |> 
+  left_join(mR.k2.all.coef.co) |> 
+  left_join(df.properties |> 
+              select(item, realpseudo))
+
+r.co <- paste0(round(cor(df.param.inv$b, df.param.inv$b_co), 2), "***")
+
+# plotting diff corr for CO
+plot.co.diff <- df.param.inv |> 
+  ggplot(aes(x = b, y = b_co)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item Difficulty From Joint Calibration",
+       y = "Item Difficulty for Colombia Only",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  scale_y_continuous(limits = c(0, 6.5)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = "bottom") +
+  theme(panel.background = element_rect(fill = 'transparent'),
+        plot.background = element_rect(fill = 'transparent', color = NA),
+        legend.position = c(.3, .87)
+        ) +
+  annotate("text",
+           x = 4.3,
+           y = 2.8,
+           label = paste0("r = ", r.co)
+           )
+
+# plotting diff corr for US
+r.us <-  paste0(round(cor(df.param.inv$b, df.param.inv$b_us), 2), "***")
+
+plot.us.diff <- df.param.inv |> 
+  ggplot(aes(x = b, y = b_us)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item Difficulty From Joint Calibration",
+       y = "Item Difficulty for United States Only",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  scale_y_continuous(limits = c(0, 6.5)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = "bottom") +
+  theme(panel.background = element_rect(fill = 'transparent'),
+        plot.background = element_rect(fill = 'transparent', color = NA),
+        legend.position = c(.3, .87)
+        ) +
+  annotate("text",
+           x = 4.5,
+           y = 2.3,
+           label = paste0("r = ", r.us)
+           )
+
+# plotting diff corr CO x US
+r.us.co <-  paste0(round(cor(df.param.inv$b_co, df.param.inv$b_us), 2), "***")
+
+plot.diff <- df.param.inv |> 
+  ggplot(aes(x = b_co, y = b_us)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item Difficulty From Colombia Only",
+       y = "Item Difficulty for United States Only",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  scale_y_continuous(limits = c(0, 6.5)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = "bottom") +
+  theme(panel.background = element_rect(fill = 'transparent'),
+        plot.background = element_rect(fill = 'transparent', color = NA),
+        legend.position = c(.3, .87)
+        ) +
+  annotate("text",
+           x = 5.5,
+           y = 2,
+           label = paste0("r = ", r.us.co)
+           )
+
+ggarrange(plotlist = list(plot.co.diff, plot.us.diff, plot.diff),
+          ncol = 3,
+          labels = "AUTO"
+          )
+```
+
+Next, we assessed parameter invariance.
+To account for the difference in grade ranges, we fit another set of 1PL models using only data from respondents in those grades represented in both samples (grades 1 and 2).
+We compared item parameters of a jointly calibrated IRT model to parameters for separately calibrated models, as well as correlations. between parameters of the two separately calibrated models.
+@fig-param-inv-final shows the resultant correlations.
+Both sub-samples' item parameters are very highly correlated with those obtained from a joint calibration.
+The correlation between separately calibrated US and Colombian parameters, though somewhat lower, still suggests that parameters are similar in both contexts.
+Here, the lexicality effect, with pseudowords being easier for the Colombian subsample warrants further investigation.
+
+## Validity Evidence
+
+These analyses draw on a sub-set of the Colombian sub-sample.
+To assess whether ROAR Palabra scores can be used of indicators of word reading performance, we correlated students' ROAR Palabra theta scores (obtained from the final model) with their scores on the Woodcock-Muñoz Letter-word Identification and Word Attack scores (panels A and B of [@fig-validity], respectively).
+
+Cross-sectional growth patterns can provide additional validity evidence.
+As children progress through the grades, their score on lexical decision tasks is reasonably expected to increase, given the additional reading instruction and vocabulary expansion.
+Therefore, a good lexical decision task should produce higher scores for students in higher grades.
+Panel D in [@fig-validity] shows that mean ROAR Palabra scores increase monotonically across grade levels.
+
+```{r fig-validity, cache=FALSE}
+#| label: fig-validity
+#| fig-cap: "Validity Evidence for ROAR Palabra By Means of Correlations Between ROAR Palabra Theta Scores and Woodcock-Muñoz Basic Reading Skills (Panel A), Letter-word Identification (Panel B), and Word Attack (Panel C) Raw Scores, as well as Cross-sectional Growth Across Grades on ROAR Palabra (Panel D) For the Colombian Sub-sample."
+df.crit.val <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |>
+  select(c(user.assessmentPid, theta, contains("WM_"))) |> 
+  left_join(df |>
+              select(user.assessmentPid,
+                     contains("WM")
+                     ) |>
+              unique()
+            ) |>
+  filter(!is.na(WM_LWID_Raw)) |>
+  # filter out impossible scores for WA
+  mutate(WM_WA_Raw = if_else(WM_WA_Raw > 40, NA, WM_WA_Raw),
+         WM_BRS_Raw = if_else(!is.na(WM_WA_Raw), WM_LWID_Raw + WM_WA_Raw, NA)) |> 
+  left_join(df |>
+              select(c(user.assessmentPid,
+                       grade)
+                     ) |>
+              unique()
+            ) |> 
+  select(c(user.assessmentPid, grade, theta, contains("Raw"))) |> 
+  pivot_longer(cols = c(contains("WM")), names_to = "task", values_to = "wm.score") |> 
+  mutate(wm.score = as.numeric(wm.score))
+
+df.plot <- df.crit.val |> 
+  filter(task == "WM_BRS_Raw",
+         !is.na(wm.score)
+         ) |> 
+  mutate(grade = as.numeric(grade))
+g.brs <- mgcv::gam(wm.score ~ s(theta), data = df.plot)
+c.brs <- cor(predict(g.brs), na.omit(df.plot$wm.score))
+
+plot0 <- df.plot |> 
+  ggplot(aes(x = theta, y = wm.score)) +
+  geom_point(aes(colour = grade), alpha = .6) +
+  stat_smooth(method='gam', formula=y ~ s(x, bs = "cs",k=2),color='black') +
+  labs(x = "ROAR Palabra (Theta)",
+       y = "WM Basic Reading Skills",
+       colour = "Grade"
+       ) +
+  scale_color_viridis(option = "viridis") +
+  theme_classic() +
+  guides(colour = "none") +
+  annotate("text",
+           x = max(df.plot$theta) * 0.8,
+           y = min(df.plot$wm.score, na.rm = TRUE) * 2,
+           label = sprintf("r = %.2f\nn = %d", c.brs, nrow(df.plot))
+           )
+
+df.plot <- df.crit.val |> 
+  filter(task == "WM_LWID_Raw",
+         !is.na(wm.score)
+         ) |> 
+  mutate(grade = as.numeric(grade))
+g.brs <- mgcv::gam(wm.score ~ s(theta), data = df.plot)
+c.brs <- cor(predict(g.brs), na.omit(df.plot$wm.score))
+
+plot1 <- df.plot |> 
+  ggplot(aes(x = theta, y = wm.score)) +
+  geom_point(aes(colour = grade), alpha = .6) +
+  stat_smooth(method='gam', formula=y ~ s(x, bs = "cs",k=2),color='black') +
+  labs(x = "ROAR Palabra (Theta) ",
+       y = "WM Letter-word ID",
+       colour = "Grade"
+       ) +
+  scale_color_viridis(option = "viridis") +
+  theme_classic() +
+  guides(colour = "none") +
+  annotate("text",
+           x = max(df.plot$theta) * 0.8,
+           y = min(df.plot$wm.score, na.rm = TRUE) * 2,
+           label = sprintf("r = %.2f\nn = %d", c.brs, nrow(df.plot))
+           )
+
+df.plot <- df.crit.val |> 
+  filter(task == "WM_WA_Raw",
+         !is.na(wm.score)
+         ) |> 
+  mutate(grade = as.numeric(grade))
+g.brs <- mgcv::gam(wm.score ~ s(theta), data = df.plot)
+c.brs <- cor(predict(g.brs), na.omit(df.plot$wm.score))
+
+plot2 <- df.plot |> 
+  ggplot(aes(x = theta, y = wm.score)) +
+  geom_point(aes(colour = grade), alpha = .6) +
+  stat_smooth(method='gam', formula=y ~ s(x, bs = "cs",k=2),color='black') +
+  labs(x = "ROAR Palabra (Theta)",
+       y = "WM Word Attack",
+       colour = "Grade"
+       ) +
+  scale_color_viridis(option = "viridis") +
+  theme_classic() +
+  guides(colour = "none") +
+  annotate("text",
+           x = max(df.plot$theta) * 0.8,
+           y = 2.5,
+           label = sprintf("r = %.2f\nn = %d", c.brs, nrow(df.plot))
+           )
+
+plot.critval <- ggarrange(plotlist = list(plot0, plot1, plot2), ncol = 3,
+          labels = c("A", "B", "C")
+          )
+
+plot.growth <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |> 
+  left_join(df |>
+              select(c(user.assessmentPid, grade, location)) |>
+              unique()
+            ) |> 
+  select(c(user.assessmentPid, theta, grade, location)) |>
+  filter(!is.na(grade),
+         grade != 12,
+         grade != 0
+         ) |>
+  group_by(grade) |> 
+  mutate(n_grade = n()) |> 
+  ungroup() |> 
+  ggplot(aes(x = grade, y = theta, group = grade, colour = grade)) +
+  geom_jitter(alpha = .1) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "errorbar",
+    width = .2,
+    colour = "black"
+    ) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "point",
+    width = .2,
+    colour = "black"
+    ) +
+  theme_classic() +
+  labs(x = "Grade",
+       y = "ROAR Palabra Score",
+       colour = "Grade"
+       ) +
+  scale_colour_viridis_c(
+    breaks = seq(1, 11, by = 1),
+    labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11")
+  ) +
+  scale_x_continuous(breaks = c(1:11),
+                     labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11")) +
+  guides(color = guide_legend(nrow = 1,
+                              title.position = "left",
+                              label.position = "right",
+                              direction = "horizontal",
+                              override.aes = list(alpha = 1)
+                              )
+    ) +
+  theme(legend.position = "bottom")
+  
+plot.val <- ggarrange(plot.critval, plot.growth,
+                      nrow = 2,
+                      labels = c("", "D")
+                      )
+plot.val
+```
+
+::: {.content-visible when-format="html"}
+
+### Growth Over Time
+
+::: {.panel-tabset}
+
+##### Combination
+
+```{r fig-growth-combination}
+#| label: fig-growth-combination
+#| fig-cap: "Cross-sectional Growth Measured by ROAR Palabra."
+
+df.growth <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |> 
+  left_join(df |>
+              select(c(user.assessmentPid, grade, location)) |>
+              unique()
+            ) |> 
+  select(c(user.assessmentPid, theta, grade, location))
+  
+plot <- df.growth |>
+  filter(!is.na(grade),
+         grade != 0,
+         grade != 12
+         ) |>
+  ggplot(aes(x = grade, y = theta, group = grade)) +
+  geom_jitter(colour = col.roar, alpha = .1) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "errorbar",
+    width = .2
+    ) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "point",
+    width = .2
+    ) +
+  theme_classic() +
+  labs(x = "Grade",
+       y = "ROAR Palabra Theta Score"
+       ) +
+  coord_flip() +
+  scale_x_continuous(breaks = c(1:11),
+                     labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"))
+
+plot
+```
+
+##### Colombia
+
+```{r fig-growth-colombia}
+#| label: fig-growth-colombia
+#| fig-cap: "Cross-sectional Growth Measured by ROAR Palabra in Colombian Sub-sample Only."
+plot <- df.growth |>
+  filter(!is.na(grade),
+         location == "Colombia") |>
+  ggplot(aes(x = grade, y = theta, group = grade)) +
+  geom_jitter(colour = col.col, alpha = .5) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "errorbar",
+    width = .2
+    ) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "point",
+    width = .2
+    ) +
+  theme_classic() +
+  labs(x = "Grade",
+       y = "ROAR Palabra Theta Score"
+       ) +
+  coord_flip() +
+  scale_x_continuous(breaks = c(1:11),
+                     labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"))
+
+plot
+```
+
+##### United States
+
+```{r fig-growth-us}
+#| label: fig-growth-us
+#| fig-cap: "Cross-sectional Growth Measured by ROAR Palabra in the United States Sub-sample Only."
+plot <- df.growth |>
+  filter(!is.na(grade),
+         location == "United States") |>
+  ggplot(aes(x = grade, y = theta, group = grade)) +
+  geom_jitter(colour = col.usl, alpha = .5) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "errorbar",
+    width = .2
+    ) +
+  stat_summary(
+    fun.data = "mean_cl_normal",
+    fun.args = list(conf.int = 0.95),
+    geom = "point",
+    width = .2
+    ) +
+  theme_classic() +
+  labs(x = "Grade",
+       y = "ROAR Palabra Theta Score"
+       ) +
+  coord_flip() +
+  scale_x_continuous(breaks = c(1:11),
+                     labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"))
+
+plot
+```
+
+:::
+
+:::
+
+# Discussion
+
+This study investigated the feasibility of fairly using the same Spanish lexical decision task (LDT) with both monolingual Spanish-speaking and Spanish-English bilingual students, as well as such a task's utility as a proxy for traditional, proctored word reading assessments.
+Specifically, we (i) successfully developed ROAR Palabra as a linguistically fair Spanish LDT with very similar item parameters and score distributions among US and Colombian first- and second-graders and (ii) showed its moderate to high correlations with the Woodcock-Muñoz Batería IV Letter-word Identification and Word Attack subtasks.
+Additionally, we found that--for both mono- and multilinguals--item difficulty is affected by lexicality.
+
+## Lexicality Affects Item Difficulty
+
+The bimodal distributions of item difficulty and item discrimination (panel A of @fig-final-model) suggest the presence of a lexicality effect.
+Items cluster closely together and the cluster of real-word items is less difficult and less discriminating than the cluster of pseudoword items.
+This means that correctly responding to real-word items (i.e., recognising known words) is easier than correctly identifying pseudowords as such.
+Moreover, this tells us that pseudowords are more useful in telling apart high- from low-performers.
+
+We are confident that this difference is largely based on lexicality.
+Given that we effectively controlled for length, phonotactic constraints, and orthographic neighbourhood size when constructing the pseudoword-items by using the Wuggy algorithm [@Keuleers.2010], these stimuli characteristics are similarly distributed within the real-word and pseudoword item groups.
+This lexicality effect holds true for both the mono- and the multilingual sample and is consistent across grades.
+
+This clustering of items is not observed in other (less transparent) languages.
+In a very similar English task, @Yeatman.2021, for example, did not observe this pronounced difference in item difficulty and discrimination between real words and pseudowords.    
+This lexicality effect likely generalizes to other languages with similarly transparent orthographies, but further research is needed to confirm this.
+In addition to that, this finding could be corroborated if this pattern holds even with a larger set of real-word items that are less common, longer, or more difficult due to some other item features.
+
+## Decoding vs. Vocabulary
+
+One possible explanation for the presence of a lexicality effect in this Spanish LDT, but not in a comparable English task, is the lower decoding demand in Spanish [@Ziegler.2005].
+Given that the LDT task design sees the stimuli only appear briefly, efficient decoding is necessary in order to, in a second step, make a lexicality decision.
+In Spanish, due to its transparent orthography, the ability to correctly decode both words and pseudowords develops much faster than other reading skills, so that Spanish readers can successfully decode text before they can comprehend it [@López-Escribano.2013].
+
+This would suggest that Spanish LDTs load less on efficient decoding skills, but are more directly affected by vocabulary size--or the ability to recognise a known word.
+Indeed, others have also used Spanish LDTs to assess vocabulary size [@Aguasvivas.2020].
+Our findings of lower correlations between ROAR Palabra scores and WM-LWID and WM-WA scores (both of which assess decoding) compared to parallel English analyses [@Yeatman.2021] supports this hypothesis.
+
+## Linguistically Fair Assessment?
+
+A linguistically fair assessment instrument produces equally accurate results for test-takers who have different linguistic backgrounds but equal levels of mastery of the target construct.
+In the case of LDTs, this begs the question as to whether we would expect all multilinguals in a certain developmental stage--regardless of amount and context of language experience--to have achieved the same level of mastery of Spanish lexical decisions.
+Here, developmental stage is operationalized as grade level.
+Thus, this study suggests that, when developed carefully, the same Spanish LDT may be used with both monolingual and multilingual Spanish-speaking first- and second-graders--at least in Colombia and the US.
+We presented evidence showing that ROAR Palabra item parameters are not statistically significantly different in the two contexts and that final model theta scores for grades 1 and 2 are almost identically distributed.
+
+This is in line with @Aguasvivas.2020, who found no statistically significant differences in vocabulary size assessed via LDT between monolingual and bilingual Spanish-speaking adults.
+In contrast, @Izura.2014 showed large difference between first- and second-language speakers of Spanish in favour of the former on the LexTALE-Esp, a similar task requiring the correct identification of presented stimuli as words or pseudowords.
+One possible explanation for this difference might be the different age groups for the sample; our sample of students in grades 1 and 2 is likely to largely comprise beginning decoders and that differences might only start manifesting later.
+
+Finally, while we establish parameter invariance and obtain very similar score distributions for the grade range compared, these findings ought to be corroborated by additional bias analyses, especially for larger grade ranges.
+Nonetheless, the present findings strongly suggest that ROAR Palabra is suitable for use in both populations represented in the sample. 
+Caution is to be exerted, however, when comparing students from different backgrounds, especially when extrapolating to grades 3 and higher. 
+
+## Next Steps and Limitations
+
+Our data is currently imbalanced, in favour of the Colombian context.
+Therefore, we are currently collecting both ROAR Palabra and WM-LWID data from a more sizeable sample of Spanish-English bilinguals in higher grades in the US to further corroborate our claims.
+This will allow us to also provide criterion validity evidence for the US context.
+Even though the parameter invariance analysis suggested that item parameters are sufficiently similar in both the US and Colombian sub-samples, this will also need to be verified with the larger sample.
+Particularly for the items in the extended corpus, our observation counts in the US sub-sample are too low to inform item pruning.
+Additionally, the suggested lexicality effect warrantss further investigation.
+
+Furthermore, we plan to create new items---particularly more difficult real words---in order to increase the size of the item bank.
+A larger item bank with more well-performing items is necessary for an efficient use of a CAT algorithm.
+Though unlikely, once we will have collected more (US) data on the extended-corpus items, as well as on a set of additional items, we will have to revisit the IRT model and decide whether a re-calibration is warranted.
+
+Additional analyses of interest relate to the features of individual items.
+Which features (length, cognates, age of acquisition, etc.), in addition to stimulus type, make items easier or more difficult?
+Analysing the characteristics of well-performing items will also help facilitate longer-term item bank development and inform other scholars developing Spanish reading measures.
+
+Other important questions that need answering pertain to the generalizability of these findings.
+Do these findings hold true across other Spanish-speaking populations, or other school types or socioeconomic strata? 
+It would also be particularly insightful to disaggregate the US data by instructional model, in order to check for effect of children' language of instruction on ROAR Palabra scores and to reflect the notion that multilinguals are a heterogeneous population [@SolanoFlores.2009; @SolanoFlores.2017].
+
+## Conclusion
+
+Linguistically fair behavioral assessment for the growing multilingual population is a pressing global need.
+ROAR-Palabra is a reliable Spanish lexical decision task poised to respond to this.
+It was specifically developed for use with both first- and second-graders in monolingual Spanish-speaking settings, as well as in multilingual settings, such as with Spanish-speaking bilinguals in the US.
+Additionally, sensitivity to cross-sectional growth across grades and moderate to strong correlations with the Woodcock-Muñoz Basic Reading Skills cluster underpin its potential as an efficient proxy for otherwise time- and cost-intensive proctored reading assessments.
+
+Beyond presenting psychometric evidence for this new task, however, this paper also functions as a blueprint for the development of linguistically fair assessment instruments.
+We argue that the development of a task intended for use in multilingual populations requires careful subgroup-specific analyses and, most importantly, the consideration of this population and its linguistic and cultural context throught the *entire* development process.
+The former consideration manifests in subjecting the item pool to subgroup-specific item pruning and establishing parameter invariance between mono- and multilingual speakers.
+The latter substantiates in the representation of speakers of multiple varieties of Spanish, including bilingual Spanish-English speakers, in the developer team to ensure an unbiased item pool, as well as in the inclusion of multilingual speakers in the model calibration (and later norming) sample.
+
+\newpage
+# Declarations
+
+## Funding
+
+This work was funded by NICHD R01HD095861, the Stanford-Sequoia K-12 Research Collaborative, the Advanced Educational Research and Development Fund, Stanford Impact Labs, and Neuroscience:Translate grants to JDY.
+
+## Conflicts of Interest
+
+None declared.
+
+## Ethics Approval
+
+All procedures performed in studies involving human participants were in accordance with the ethical standards of the institutional and/or national research committee and with the 1964 Helsinki Declaration and its later amendments or comparable ethical standards. The study was approved by the Stanford Institutional Review Board (IRB).
+
+## Consent
+
+All individual participants or their parents/guardians were provided with consent/assent information and were given sufficient opportunity to opt out of participation in the studies.
+
+## Consent for Publication
+
+Not applicable.
+
+## Open Practices Statement/Availability of Data and Materials
+
+Data can be made available on request for purposes of research and/or collaboration; none of the analyses were preregistered.
+
+\newpage
+# References
+
+::: {#refs}
+
+:::
+
+
+\appendix
+
+::: {.content-visible unless-format="html"}
+
+# Theta Distribution (All Grades)
+:::
+
+::: {.content-visible when-format="html"}
+
+### APPENDIX: Theta Distribution (All Grades)
+
+:::
+
+```{r fig-thetas-all-grades, fig.height = 3.5}
+#| label: fig-thetas-all-grades
+#| fig-cap: "Distribution of Theta Scores Obtained from Final Model (All Grades)."
+plot.theta <- df.irt.all |>
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |>
+  select(c(user.assessmentPid, theta)) |>
+  left_join(df |>
+              filter(location != "all",
+                     # grade %in% c(1, 2)
+                     ) |>
+              select(c(user.assessmentPid, location)) |>
+              unique()
+            ) |>
+  filter(!is.na(location)) |> 
+  ggplot(aes(x = theta, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "ROAR Palabra Theta Score",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_y_continuous(limits = c(0, .35)) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.85, .8))
+plot.theta
+```
+
+::: {.content-visible when-format="html"}
+
+# APPENDIX: Re-analysis for Grades 1 and 2 Only {#sec-1-2}
+
+:::
+
+::: {.content-visible unless-format="html"}
+
+# Re-analysis for Grades 1 and 2 Only {#sec-1-2}
+
+:::
+
+```{r pre-processing-df-k2}
+df <- read_csv("data/roar-palabra-manuscript.csv") |> 
+  filter(grade < 3)
+
+# create wide df
+df.wide <- df |> 
+  select(c(user.assessmentPid, location, word, correct, contains("WM_"))) |> 
+  group_by(user.assessmentPid, word) |> 
+  slice(1) |>
+  ungroup() |> 
+  pivot_wider(names_from = word, values_from = correct)
+
+df.wide.prop.correct <- df.wide %>%
+  # add overall proportion correct 
+  mutate(prop.correct = rowSums(select(., -c(user.assessmentPid, location, contains("WM"))), na.rm = TRUE) / rowSums(!is.na(.)),
+         items.seen = rowSums(!is.na(.))
+         ) |> 
+  left_join(df.wide %>%
+
+              mutate(prop.correct.core = rowSums(select(., -c(user.assessmentPid, location, contains("WM"))), na.rm = TRUE) / rowSums(!is.na(.))
+              ) |> 
+              select(c(user.assessmentPid, prop.correct.core))
+            )
+prop.correct.corr.core.all <- cor(df.wide.prop.correct$prop.correct, df.wide.prop.correct$prop.correct.core)
+
+df.properties <- data.frame(item = character(),
+                            location = character(),
+                            pbis = double(),
+                            pbis.core = double(),
+                            r.wm.lwid = double(),
+                            r.wm.wa = double(),
+                            r.wm.brs = double(),
+                            d = double(),
+                            n = double()
+                            )
+
+df.wide <- df.wide |> 
+  rbind(df.wide |> 
+          mutate(location = "all")
+        )
+
+# add prop.correct to main df
+df <- df |> 
+  left_join(df.wide.prop.correct |>
+              select(c(user.assessmentPid, prop.correct, prop.correct.core, items.seen)),
+            by = "user.assessmentPid"
+            )
+rm(df.wide.prop.correct)
+
+for (loc in unique(df.wide$location)) {
+  
+  df.temp <- df.wide |> 
+    filter(location == loc)
+  
+  for (item in colnames(df.temp)[8:length(df.temp)]) {
+    
+    if (nrow(df.temp) == 0) next
+    
+    # compute proportion correct w/o item tested
+    prop.correct.without.item <- df.temp %>%
+      select(-c(user.assessmentPid, location, item, contains("WM"))) %>%
+      mutate(prop = rowSums(., na.rm = TRUE) / rowSums(!is.na(.))
+      ) |>
+      pull(prop)
+    prop.correct.without.item.core <- df.temp %>%
+      select(-c(user.assessmentPid, location, item, contains("WM"),
+                all_of(items.rand)
+                )
+             ) %>%
+      mutate(prop = rowSums(., na.rm = TRUE) / rowSums(!is.na(.))
+      ) |>
+      pull(prop)
+    
+    # item-total (proportion correct) correlation
+    pbis = cor(df.temp[item], prop.correct.without.item, use = "pairwise.complete")[1]
+    
+    # item-total (proportion correct) correlation for core corpuse only
+    pbis.core = cor(df.temp[item], prop.correct.without.item.core, use = "pairwise.complete")[1]
+    
+    # item-total (WM LWID) correlation
+    pbis.wm.lwid = cor(df.temp[item], as.numeric(df.temp$WM_LWID_Raw), use = "pairwise.complete")[1]
+    
+    # item-total (proportion correct) correlation
+    pbis.wm.wa = cor(df.temp[item], as.numeric(df.temp$WM_WA_Raw), use = "pairwise.complete")[1]
+    
+    # item-total (proportion correct) correlation
+    pbis.wm.brs = cor(df.temp[item], as.numeric(df.temp$WM_BRS_SS), use = "pairwise.complete")[1]
+    
+    # difficulty (proportion of corrects responses for each item)
+    p = sum(df.temp[item], na.rm = TRUE) / sum(!is.na(df.temp[item]))
+    
+    # no. of responses for each item
+    n = sum(!is.na(df.temp[item]))
+    
+    # store results
+    df.properties <- df.properties |>
+      rbind(c(item, loc, pbis, pbis.core, pbis.wm.lwid, pbis.wm.wa, pbis.wm.brs, p, n)) 
+  }
+}
+
+# change column names
+colnames(df.properties) <- c("item", "location", "pbis", "pbis.core", "pbis.lwid", "pbis.wa", "pbis.brs",  "p", "n")
+
+df.properties <- df.properties |>
+  left_join(df |>
+              select(item = word,
+                     realpseudo,
+                     corpus = corpusId) |>
+              unique()
+            ) |>
+  mutate(pbis = as.double(pbis),
+         pbis.core = as.double(pbis.core),
+         pbis.lwid = as.double(pbis.lwid),
+         pbis.wa = as.double(pbis.wa),
+         pbis.brs = as.double(pbis.brs),
+         p = as.double(p),
+         n = as.double(n),
+         ) |>
+  select(c(item, realpseudo, corpus, location, n, p, contains("pbis")))
+
+pbis.corr.core.all <- cor(df.properties$pbis, df.properties$pbis.core, use = "pairwise.complete.obs")
+```
+
+:::{ .content-visible unless-format="pdf"}
+
+## Median Response Time
+
+::: {.panel-tabset .content-visible}
+
+### Comparison
+
+```{r fig-median-rt-comparison-k2, fig.height = 3}
+#| label: fig-median-rt-comparison-k2
+#| fig-cap: "Density Plot of Median Response Times (Within Student) by Location (Grades 1 and 2 Only)."
+plot.rt <- df.rt |> 
+  select(c(user.assessmentPid, rt.median, location)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median, group = location, fill = location)) +
+  geom_density(colour = "white", binwidth = 10, alpha = .5) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Median Response Time [ms]",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  scale_colour_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.9, .9))
+plot.rt
+```
+
+### Combination
+
+```{r fig-median-rt-combination-k2, fig.height = 3}
+#| label: fig-median-rt-combination-k2
+#| fig-cap: "Density Plot of Median Response Times (Within Student) Combined Across Locations (Grades 1 and 2 Only)."
+plot.rt <- df.rt |> 
+  select(c(user.assessmentPid, rt.median)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median)) +
+  geom_histogram(fill = col.roar, binwidth = 10) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Median Response time [ms]",
+       y = "No. of Individuals")
+plot.rt
+```
+
+### Colombia
+
+```{r fig-median-rt-colombia-k2, fig.height = 3}
+#| label: fig-median-rt-colombia-k2
+#| fig-cap: "Density Plot of Median Response Times (Within Student) for Colombian Sub-sample (Grades 1 and 2 Only)."
+plot.rt <- df.rt |> 
+  filter(location == "Colombia") %>%
+  select(c(user.assessmentPid, rt.median)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median)) +
+  geom_histogram(fill = col.col, binwidth = 10) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Response time [ms]",
+       y = "No. of Individuals")
+plot.rt
+```
+
+### United States
+
+```{r fig-median-rt-us-k2, fig.height = 3}
+#| label: fig-median-rt-us-k2
+#| fig-cap: "Density Plot of Median Response Times (Within Student) for US sub-sample (Grades 1 and 2 Only)."
+plot.rt <- df.rt |> 
+  filter(location == "United States") %>%
+  select(c(user.assessmentPid, rt.median)) |> 
+  unique() |> 
+  ggplot(aes(x = rt.median)) +
+  geom_histogram(fill = col.usl, binwidth = 10) +
+  geom_vline(xintercept = 450, colour = "black", alpha = .5, size = .2) +
+  theme_bw() +
+  theme_classic() +
+  scale_x_continuous(limits = c(0,5000), breaks = c(0, 450, 1000, 2000, 3000, 4000, 5000)) +
+  labs(x = "Median Response Time [ms]",
+       y = "No. of Individuals")
+plot.rt
+```
+
+:::
+:::
+
+::: {.content-visible unless-format="html"}
+
+```{r fig-performance-comparison-pdf-k2, fig.height = 3, eval = FALSE}
+#| label: fig-performance-comparison-pdf-k2
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) by Location (Grades 1 and 2 Only)."
+plot <- df |> 
+  # filter(location == "United States") %>%
+  select(c(user.assessmentPid, location, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot
+```
+
+:::
+
+
+::: {.content-visible when-format="html"}
+
+## Sample Performance
+
+::: {.panel-tabset}
+
+### Comparison
+
+```{r fig-performance-comparison-k2, fig.height = 3}
+#| label: fig-performance-comparison-k2
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) by Location (Grades 1 and 2 Only)."
+plot1 <- df |> 
+  # filter(location == "United States") %>%
+  select(c(user.assessmentPid, location, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core, group = location, fill = location)) +
+  geom_density(colour = "white", bins = 50, position = "identity", alpha = .5) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     ) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+### Combination
+
+```{r fig-performance-combination-k2, fig.height = 3}
+#| label: fig-performance-combination-k2
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) Combined Across Locations (Grades 1 and 2 Only)."
+plot1 <- df |> 
+  # filter(location == "all") %>%
+  select(c(user.assessmentPid, location, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core)) +
+  geom_histogram(colour = "white", fill = col.roar, bins = 50) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "No. of Individuals"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     ) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+plot1
+```
+
+### Colombia
+
+```{r fig-performance-colombia-k2, fig.height = 3}
+#| label: fig-performance-colombia-k2
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) in the Colombian Sub-sample (Grades 1 and 2 Only)."
+plot1 <- df |> 
+  filter(location == "Colombia") |>
+  select(c(user.assessmentPid, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "No. of Individuals"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     )
+plot1
+```
+
+### United States
+
+```{r fig-performance-us-k2, fig.height = 3}
+#| label: fig-performance-us-k2
+#| fig-cap: "Density Plot Showing the Distribution of ROAR Palabra Raw Scores (Proportion Correct) in the US sub-sample (Grades 1 and 2 Only)."
+plot1 <- df |> 
+  filter(location == "United States") |>
+  select(c(user.assessmentPid, prop.correct.core)) |>
+  unique() %>%
+  ggplot(aes(x = prop.correct.core)) +
+  geom_histogram(fill = col.usl, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Proportion of Correct Responses",
+       y = "No. of Individuals"
+       ) +
+  scale_x_continuous(labels = scales::percent_format(scale = 100),
+                     limits = c(0,1),
+                     n.breaks = 10
+                     )
+plot1
+```
+
+:::
+:::
+
+:::{.content-visible when-format="html"}
+
+## Sample Performance and Median Response Times (Grades 1 and 2 Only)
+
+:::
+
+```{r fig-median-rt-scores-k2, fig.height = 5}
+#| label: fig-median-rt-scores-k2
+#| fig-cap: "Median Response Time as a Function of Raw (Proportion Correct) Score on ROAR Palabra (Grades 1 and 2 Only)."
+#| fig-pos: h
+
+df.rt <- df |>
+  filter(grade %in% c(1, 2)) |> 
+  # median response time across all items (core + random administered)
+  group_by(user.assessmentPid, runId, location, grade) |>
+  mutate(rt.median = median(rt)) |>
+  ungroup() |>
+  select(c(user.assessmentPid, rt.median)) |>
+  unique() |> 
+  left_join(df |>
+              filter(corpusId == "spanish-core") |>
+              select(c(user.assessmentPid, runId, rt)) |>
+              group_by(user.assessmentPid, runId) |>
+              mutate(rt.core.median = median(rt)) |>
+              ungroup() |>
+              select(c(user.assessmentPid, rt.core.median)) |>
+              unique()
+  ) |> 
+  select(c(user.assessmentPid, rt.median, rt.core.median)) |> 
+  unique() |> 
+  left_join(df |>
+              select(c(user.assessmentPid,
+                       prop.correct,
+                       grade,
+                       location
+              )
+              ) |> 
+              unique()
+  ) |> 
+  mutate(grade = factor(grade, levels = c("1", "2")))
+
+plot.rt <- df.rt |> 
+  ggplot(aes(x = prop.correct, y = rt.median, colour = grade, shape = location, group = location)) +
+  geom_point(alpha = .8, aes(shape = location, colour = grade, group = location)) +
+  geom_vline(xintercept = .65, colour = "darkgray") +
+  geom_hline(yintercept = 450, colour = "darkgray") +
+  theme(legend.position = "bottom") +
+  scale_shape_manual(values = c("United States" = 21, "Colombia" = 24)) +
+  scale_x_continuous(breaks = c(0, .25, .50, .65, .75, 1), 
+                     labels = c("0", ".25", ".50", expression(bold(".65")), ".75", "1.00")) +
+  scale_y_continuous(breaks = c(450, 1000, 2000, 3000, 4000, 5000), 
+                     labels = c(expression(bold("450")), "1000", "2000", "3000", "4000", "5000")) +
+scale_color_manual(values = c("#482677FF", "#3CBB75FF")) +
+  labs(x = "ROAR Palabra Proportion Correct",
+       y = "Median Respone Time [ms]",
+       colour = "Grade",
+       shape = "Location"
+       ) +
+  guides(
+    color = guide_legend(
+      nrow = 1,
+      title.position = "left",
+      label.position = "right",
+      direction = "horizontal"
+    ),
+    shape = guide_legend(
+      nrow = 1,
+      title.position = "left",
+      label.position = "right",
+      direction = "horizontal"
+      )
+    )
+
+plot.rt <- ggMarginal(plot.rt,
+                      type = "histogram",
+                      fill = "#2D708EFF",
+                      colour = "#33638DFF",
+                      alpha = 1
+)
+plot.rt
+
+# cor(df.rt$rt.median, df.rt$rt.core.median) # = .91
+```
+
+
+
+```{r corr-item-difficulty-k2}
+df.temp <- df.properties |> 
+  select(c(item, location, p, corpus)) |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  pivot_wider(names_from = location, values_from = p)
+
+r.difficulty.core <- round(cor(df.temp$`United States`, df.temp$Colombia), 2)
+
+rm(df.temp)
+```
+
+::: {.content-visible when-format="html"}
+
+## Item Properties
+
+### Item Difficulty {#sec-item-difficulties-k2}
+
+:::{.panel-tabset}
+
+#### Comparison
+
+```{r fig-item-difficulty-comparison-k2, fig.height = 6}
+#| label: fig-item-difficulty-comparison-k2
+#| fig-cap: "Distribution of Item Difficulty (Proportion Correct) for Core Items by Location (Panel A) and Correlation Between Estimates in the Two Locations (Panel B; Grades 1 and 2 Only)."
+plot1 <- df.properties %>%
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = p, fill = location)) +
+  geom_density(colour = "white", binwidth = 10, alpha = .5) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "Density",
+       fill = "Location"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+plot2 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, p, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = p) |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  stat_cor() +
+  theme_classic() +
+  labs(x = "Item Difficulty in Colombia",
+       y = "Item Difficulty in the United States",
+       colour = "Stimulus Type"
+       ) +
+  # scale_x_continuous(limits = c(0, 1)) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .7))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+#### Combination
+
+```{r fig-difficulty-combination-k2, fig.height = 6}
+#| label: fig-item-difficulty-combination-k2
+#| fig-cap: "Item Difficulty (Proportion Correct) for Core Items Combined Across Locations (Grades 1 and 2 Only)."
+plot1 <- df.properties %>%
+  filter(location == "all") |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill = col.roar, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items"
+       ) +
+  scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "all") |> 
+  ggplot(aes(x = p, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+#### Colombia
+
+```{r fig-difficulty-colombia-k2, fig.height = 6}
+#| label: fig-item-difficulty-colombia-k2
+#| fig-cap: "Item Difficulty (Proportion Correct) for Core Items in the Colombian Sub-sample (Grades 1 and 2 Only)."
+plot1 <- df.properties %>%
+  filter(location == "Colombia") |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items"
+       ) +
+  scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "Colombia") |> 
+  ggplot(aes(x = p, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, position = 'identity') +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+#### United States
+
+```{r fig-difficulty-us-k2, fig.height = 6}
+#| label: fig-item-difficulty-us-k2
+#| fig-cap: "Item Difficulty (Proportion Correct) for Core Items in the US sub-sample (Grades 1 and 2 Only)."
+plot1 <- df.properties %>%
+  filter(location == "United States") |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill = col.usl, colour = "white", bins = 50) +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items"
+       ) +
+  scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "United States") |> 
+  ggplot(aes(x = p, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item Difficulty (Proportion Correct)",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+:::
+:::
+
+::: {.content-visible when-format="pdf"}
+
+```{r fig-pbis-comparison-pdf-k2, fig.height = 6, eval = FALSE}
+#| label: fig-pbis-comparison-pdf-k2
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations by for Core Items by Location (Panel A) and Correlation Between Estimates in the Two Locations (Panel B; Grades 1 and 2 Only)."
+
+plot1 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = location)) +
+  geom_density(colour = "white", bins = 30, alpha = .5) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Location"
+       ) +
+  # scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+plot2 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, pbis, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = pbis) |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  stat_cor() +
+  # scale_x_continuous(limits = c(-1, 1)) +
+  # scale_y_continuous(limits = c(-1, 1)) +
+  theme_classic() +
+  labs(x = "Item-total Correlations in Colombia",
+       y = "Item-total Correlations in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.9, .2))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+:::
+
+::: {.content-visible when-format="html"}
+
+### Point-biserial (Item-total) Correlations
+
+::: {.panel-tabset}
+
+#### Comparison
+
+```{r fig-pbis-comparison-k2, fig.height = 6}
+#| label: fig-pbis-comparison-k2
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations by for Core Items by Location (Panel A) and Correlation Between Estimates in the Two Locations (Panel B; Grades 1 and 2 Only)."
+
+plot1 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = location)) +
+  geom_density(colour = "white", bins = 30, alpha = .5) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Location"
+       ) +
+  # scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.usl, col.col)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+plot2 <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, pbis, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = pbis) |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  stat_cor() +
+  # scale_x_continuous(limits = c(-1, 1)) +
+  # scale_y_continuous(limits = c(-1, 1)) +
+  theme_classic() +
+  labs(x = "Item-total Correlations in Colombia",
+       y = "Item-total Correlations in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.9, .2))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA))
+fig1
+```
+
+#### Combination 
+
+```{r fig-pbis-combination-k2, fig.height = 6}
+#| label: fig-pbis-combination-k2
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For Both Locations Combined (Grades 1 and 2 Only)."
+
+plot1 <- df.properties |> 
+  filter(location == "all",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis)) +
+  geom_histogram(fill = col.roar, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items"
+       )
+
+plot2 <- df.properties %>%
+  filter(location == "all") |>
+  ggplot(aes(x = pbis, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  # scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+#### Colombia 
+
+```{r fig-pbis-colombia-k2, fig.height = 6}
+#| label: fig-pbis-colombia-k2
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For Colombian Sub-sample (Grades 1 and 2 Only)."
+
+plot1 <- df.properties |> 
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items"
+       )
+  # scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  # scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+#### United States
+
+```{r fig-pbis-us-k2, fig.height = 6}
+#| label: fig-pbis-us-k2
+#| fig-cap: "Distribution of Item-total (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For US sub-sample (Grades 1 and 2 Only)."
+
+plot1 <- df.properties |> 
+  filter(location == "United States",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items"
+       )
+  # scale_x_continuous(limits = c(0, 1))
+
+plot2 <- df.properties %>%
+  filter(location == "United States",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Item-total Correlations",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  # scale_x_continuous(limits = c(0, 1)) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+:::
+
+:::
+
+```{r fig-item-properties-k2, fig.height = 6}
+#| label: fig-item-properties-k2
+#| fig-cap: "ROAR Palabra Item Properties with Item Difficulty  (Proportion Correct) Distribution in Panel A, Item-total (Point-biserial) Correlations in Panel B, and Item-WM-LWID (Point-biserial) Correlations in Panel C (Colombian Subsample Only), for Core Items (Grades 1 and 2 Only)."
+#| fig-pos: h
+
+df.temp <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, p, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = p)
+
+r.diff <- paste0(round(cor(df.temp$`United States`, df.temp$Colombia), 2), "***")
+
+plot.diff <- df.temp |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item Difficulty in Colombia",
+       y = "Item Difficulty in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.8, .15)) +
+  annotate("text",
+           x = 0.55,
+           y = 0.65,
+           label = paste0("r = ", r.diff)
+           )
+
+plot.diff <- ggMarginal(plot.diff,
+                        type = "densigram",
+                        alpha = .5,
+                        groupFill = TRUE,
+                        colour = "white",
+                        alpha = 1
+                        )
+
+# plot ITCs
+df.temp <- df.properties |> 
+  filter(location != "all",
+         corpus == "spanish-core") |> 
+  select(c(item, location, pbis, realpseudo)) |> 
+  pivot_wider(names_from = location, values_from = pbis)
+
+r.itcs <- paste0(round(cor(df.temp$`United States`, df.temp$Colombia), 2), "***")
+
+plot.itcs <- df.temp |> 
+  ggplot(aes(x = Colombia, y =`United States`)) +
+  geom_abline(colour = "darkgray", linetype = "dashed") +
+  geom_point(aes(colour = realpseudo), alpha = .5) +
+  stat_smooth(method = "lm", colour = "black") +
+  theme_classic() +
+  labs(x = "Item-total Correlations in Colombia",
+       y = "Item-total Correlations in the United States",
+       colour = "Stimulus Type"
+       ) +
+  scale_colour_manual(values = c(col.pseudo, col.real)) +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.8, .15)) +
+  annotate("text",
+           x = 0.05,
+           y = 0.2,
+           label = paste0("r = ", r.itcs)
+           )
+
+plot.itcs <- ggMarginal(plot.itcs,
+                        type = "densigram",
+                        alpha = .5,
+                        groupFill = TRUE,
+                        colour = "white",
+                        alpha = 1
+                        )
+
+plot.wm <- df.properties |> 
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis.lwid)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Point-biserial Correlations with Woodcock-Muñoz Letter-word Identification Raw Scores",
+       y = "No. of Items"
+       )
+
+fig1 <- ggarrange(plot.diff, plot.itcs, labels = c("A", "B"),
+          nrow = 1)
+fig2 <- ggarrange(fig1, plot.wm,
+                  nrow = 2,
+                  heights = c(.7, .3),
+                  labels = c("", "C"))
+fig2
+```
+
+::: {.content-visible when-format="html"}
+
+### Point-biserial (WM-LWID-total) Correlations
+
+<!-- add n -->
+
+```{r fig-pbis-wm-colombia-k2, fig.height = 6}
+#| label: fig-pbis-wm-colombia-k2
+#| fig-cap: "Distribution of Item-WM-LWID (Point-biserial) Correlations for All Core Items (Panel A) and Disaggregated by Stimulus Type (Panel B) For Part of Colombian Sub-sample (Grades 1 and 2 Only)."
+
+plot1 <- df.properties |> 
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis.lwid)) +
+  geom_histogram(fill = col.col, colour = "white", bins = 30) +
+  theme_classic() +
+  labs(x = "Point-biserial Correlations with Woodcock-Muñoz Letter-word Identification Raw Scores",
+       y = "No. of Items"
+       )
+
+plot2 <- df.properties %>%
+  filter(location == "Colombia",
+         corpus == "spanish-core") |> 
+  ggplot(aes(x = pbis.lwid, fill = realpseudo, group = realpseudo)) +
+  geom_histogram(colour = "white", bins = 50, alpha = .5, , position = 'identity') +
+  theme_classic() +
+  labs(x = "Point-biserial Correlations with Woodcock-Muñoz Letter-word Identification Raw Scores",
+       y = "No. of Items",
+       fill = "Stimulus Type"
+       ) +
+  scale_fill_manual(values = c(col.pseudo, col.real))  +
+  theme(panel.background = element_rect(fill = 'transparent'), plot.background = element_rect(fill = 'transparent', color = NA), legend.position = c(.1, .8))
+
+fig1 <- ggarrange(plot1, plot2, labels = c("A", "B"),
+          nrow = 2)
+fig1
+```
+
+:::
+
+::: {.content-visible when-format="html"}
+
+### Criterion Validity Evidence
+:::
+
+```{r fig-criterion-validity-wm-k2, fig.height=3.5}
+#| label: fig-criterion-validity-k2
+#| fig-cap: "Validity Evidence for ROAR Palabra By Means of Correlations Between ROAR Palabra Theta Scores and Woodcock-Muñoz Basic Reading Skills (Panel A), Letter-word Identification (Panel B), and Word Attack (Panel C) Raw Scores  (Grades 1 and 2 Only)."
+df.crit.val <- df.irt.all |> 
+  mutate(theta = fscores(mR.all, full.scores.SE = TRUE)[,1]) |>
+  select(c(user.assessmentPid, theta, contains("WM_"))) |> 
+  left_join(df |>
+              select(user.assessmentPid,
+                     contains("WM")
+                     ) |>
+              unique()
+            ) |>
+  filter(!is.na(WM_LWID_Raw)) |>
+  mutate(WM_BRS_Raw = if_else(!is.na(WM_WA_Raw), WM_LWID_Raw + WM_WA_Raw, NA)) |> 
+  left_join(df |>
+              select(c(user.assessmentPid,
+                       grade)
+                     ) |>
+              unique()
+            ) |> 
+  select(c(user.assessmentPid, grade, theta, contains("Raw"))) |> 
+  pivot_longer(cols = c(contains("WM")), names_to = "task", values_to = "wm.score") |> 
+  mutate(wm.score = as.numeric(wm.score),
+         task = case_when(task == "WM_LWID_Raw" ~ "WM Letter-word ID",
+                          task == "WM_WA_Raw" ~ "WM Word Attack",
+                          task == "WM_BRS_Raw" ~ "WM Basic Reading Skills"
+                          )
+         ) |> 
+  filter(grade %in% c(1, 2)) |> 
+  mutate(grade = as.character(grade))
+
+df.plot <- df.crit.val |> 
+  filter(grepl("Basic Reading Skills", task),
+         !is.na(wm.score)
+         )
+g.brs <- mgcv::gam(wm.score ~ s(theta), data = df.plot)
+c.brs <- cor(predict(g.brs), na.omit(df.plot$wm.score))
+
+plot0 <- df.plot |> 
+  ggplot(aes(x = theta, y = wm.score)) +
+  geom_point(aes(colour = grade), alpha = .7) +
+  stat_smooth(method='gam', formula=y ~ s(x, bs = "cs",k=2),color='black') +
+  labs(x = "ROAR Palabra (Theta)",
+       y = "WM Basic Reading Skills ",
+       colour = "Grade"
+       ) +
+  scale_color_manual(values = c("#482677FF", "#3CBB75FF")) +
+  theme_classic() +
+  guides(colour = "none") +
+  annotate("text",
+           x = max(df.plot$theta) * 0.7,
+           y = min(df.plot$wm.score, na.rm = TRUE) * 2,
+           label = sprintf("r = %.2f\nn = %d", c.brs, nrow(df.plot))
+           )
+
+df.plot <- df.crit.val |> 
+  filter(grepl("ID", task),
+         !is.na(wm.score)
+         )
+g.brs <- mgcv::gam(wm.score ~ s(theta), data = df.plot)
+c.brs <- cor(predict(g.brs), na.omit(df.plot$wm.score))
+
+plot1 <- df.plot |> 
+  ggplot(aes(x = theta, y = wm.score)) +
+  geom_point(aes(colour = grade), alpha = .7) +
+  stat_smooth(method='gam', formula=y ~ s(x, bs = "cs",k=2),color='black') +
+  labs(x = "ROAR Palabra (Theta) ",
+       y = "WM Letter-word ID",
+       colour = "Grade"
+       ) +
+  scale_color_manual(values = c("#482677FF", "#3CBB75FF")) +
+  theme_classic() +
+  guides(colour = "none") +
+  annotate("text",
+           x = max(df.plot$theta) * 0.7,
+           y = min(df.plot$wm.score, na.rm = TRUE) * 2,
+           label = sprintf("r = %.2f\nn = %d", c.brs, nrow(df.plot))
+           )
+
+df.plot <- df.crit.val |> 
+  filter(grepl("Attack", task),
+         !is.na(wm.score)
+         )
+g.brs <- mgcv::gam(wm.score ~ s(theta), data = df.plot)
+c.brs <- cor(predict(g.brs), na.omit(df.plot$wm.score))
+
+plot2 <- df.plot |> 
+  filter(grepl("Attack", task),
+         wm.score < 40, # to filter out erroneous scores larger than scale length
+         !is.na(wm.score)
+         ) |>
+  ggplot(aes(x = theta, y = wm.score)) +
+  geom_point(aes(colour = grade), alpha = .7) +
+  stat_smooth(method='gam', formula=y ~ s(x, bs = "cs",k=2),color='black') +
+  labs(x = "ROAR Palabra (Theta)",
+       y = "WM Word Attack",
+       colour = "Grade"
+       ) +
+  scale_color_manual(values = c("#482677FF", "#3CBB75FF")) +
+  theme_classic() +
+  guides(colour = "none") +
+  annotate("text",
+           x = max(df.plot$theta) * 0.7,
+           y = 2.5,
+           label = sprintf("r = %.2f\nn = %d", c.brs, nrow(df.plot))
+           )
+
+plot <- ggarrange(plotlist = list(plot0, plot1, plot2), ncol = 3,
+                  labels = c("A", "B", "C"),
+                  common.legend = TRUE,    # Enable shared legend
+                  legend = "bottom",
+                  legend.grob = get_legend(plot1 + guides(color = guide_legend(nrow = 1,
+                                                                               title.position = "left",
+                                                                               label.position = "right",
+                                                                               direction = "horizontal"
+                  )))
+          )
+plot
+```
